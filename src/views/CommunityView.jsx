@@ -12,28 +12,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { calculateLevel, getAvatarColor } from "../utils/helpers";
+import {
+  MAX_COMMUNITY_MESSAGE_LENGTH,
+  isCommunityMessageVisibleToCohort,
+  moderateCommunityMessage,
+  sanitizeCommunityText
+} from "../utils/communityModeration";
 
-// Safety filter blocking PII, phone numbers, emails, and profanity
-export function filterContentForSafety(text, cohort) {
-  let cleaned = text;
-
-  // Block phone numbers (10+ digits or formatted)
-  cleaned = cleaned.replace(/\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, "[REDACTED PHONE]");
-
-  // Block email addresses
-  cleaned = cleaned.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[REDACTED EMAIL]");
-
-  // Block external invite links / off-cohort codes
-  cleaned = cleaned.replace(/(discord\.gg|t\.me|chat\.whatsapp\.com|zoom\.us)\/[a-zA-Z0-9]+/gi, "[REDACTED LINK]");
-
-  // Profanity filter
-  const profaneList = ["damn", "hell", "crap", "bastard", "idiot", "stupid", "hate", "kill", "die", "shut up"];
-  profaneList.forEach(w => {
-    const reg = new RegExp(`\\b${w}\\b`, "gi");
-    cleaned = cleaned.replace(reg, "★".repeat(w.length));
-  });
-
-  return cleaned;
+/**
+ * Backwards-compatible sanitizer export for code that only needs PII/link
+ * redaction. The actual send paths below use `moderateCommunityMessage` so a
+ * blocked Cohort-A/B post never reaches storage, the chat stream, or XP logic.
+ */
+export function filterContentForSafety(text) {
+  return sanitizeCommunityText(text);
 }
 
 // ── PHASE 1: Academic Subject Servers (Far-Left Server Rail) ──
@@ -159,6 +151,30 @@ const SEED_MESSAGES = [
   }
 ];
 
+/**
+ * Restore only valid message arrays from browser storage. A valid JSON object
+ * is not necessarily a valid message list; without this guard, a damaged saved
+ * value would make `.filter()` fail and blank the Community Hub.
+ */
+function loadStoredCommunityMessages() {
+  try {
+    const stored = localStorage.getItem("ag2_chat_messages_v3");
+    const parsed = stored ? JSON.parse(stored) : null;
+    return Array.isArray(parsed) ? parsed.filter(message => message && typeof message === "object") : SEED_MESSAGES;
+  } catch {
+    return SEED_MESSAGES;
+  }
+}
+
+/**
+ * Date.now alone can collide when a user posts or shares twice in one
+ * millisecond. The random suffix keeps React keys and local history stable.
+ */
+function createCommunityMessageId(prefix) {
+  const suffix = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2, 10);
+  return `${prefix}_${Date.now()}_${suffix}`;
+}
+
 // ── Voice & Study Rooms with Dynamic Students Array ──
 const VOICE_ROOMS = [
   {
@@ -212,16 +228,12 @@ export default function CommunityView() {
   // ── PHASE 2: Active Text Channel State ──
   const [activeChannelId, setActiveChannelId] = useState("general-discourse");
 
-  const [messages, setMessages] = useState(() => {
-    try {
-      const stored = localStorage.getItem("ag2_chat_messages_v3");
-      return stored ? JSON.parse(stored) : SEED_MESSAGES;
-    } catch {
-      return SEED_MESSAGES;
-    }
-  });
+  const [messages, setMessages] = useState(loadStoredCommunityMessages);
 
   const [inputText, setInputText] = useState("");
+  // This inline alert accompanies the toast so a blocked post is accessible
+  // even if the transient toast has already faded from the screen.
+  const [moderationNotice, setModerationNotice] = useState("");
 
   // ── PHASE 3: Voice Room Dynamic State ──
   const [activeVoiceRoom, setActiveVoiceRoom] = useState(null);
@@ -330,13 +342,21 @@ export default function CommunityView() {
   // ── PHASE 2: Send Message Tagged with channelId & serverId ──
   const handleSendMessage = (e) => {
     e?.preventDefault();
-    const raw = inputText.trim();
+    const raw = String(inputText || "").trim().slice(0, MAX_COMMUNITY_MESSAGE_LENGTH);
     if (!raw) return;
 
-    const sanitized = filterContentForSafety(raw, userCohort);
+    // Run the cohort policy before creating a message. A blocked Youth-cohort
+    // post is deliberately not appended, persisted, or rewarded with XP.
+    const moderation = moderateCommunityMessage(raw, userCohort);
+    if (!moderation.allowed) {
+      setInputText("");
+      setModerationNotice(moderation.warning);
+      showToast(`⚠️ ${moderation.warning}`);
+      return;
+    }
 
     const newMsg = {
-      id: "msg_" + Date.now(),
+      id: createCommunityMessageId("msg"),
       serverId: activeServerId,
       channelId: activeChannelId,
       author: userProfile?.username || progress.name || "Student",
@@ -344,21 +364,34 @@ export default function CommunityView() {
       cohort: userCohort,
       level: userLevel,
       streak: progress.streak || 1,
-      text: sanitized,
+      text: moderation.text,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     };
 
     setMessages(prev => [...prev, newMsg]);
     setInputText("");
+    setModerationNotice("");
     awardXP(5, `Shared message in #${activeChannel.name}`);
   };
 
   const handlePublishShare = () => {
-    if (!shareDraft.trim()) return;
+    const raw = String(shareDraft || "").trim().slice(0, MAX_COMMUNITY_MESSAGE_LENGTH);
+    if (!raw) return;
 
-    const sanitized = filterContentForSafety(shareDraft, userCohort);
+    // AI Tutor shares use the same enforcement point as ordinary chat messages
+    // so the modal cannot bypass the Cohort-A/B language policy.
+    const moderation = moderateCommunityMessage(raw, userCohort);
+    if (!moderation.allowed) {
+      setShareDraft("");
+      setShowShareModal(false);
+      setPendingCommunityShare(null);
+      setModerationNotice(moderation.warning);
+      showToast(`⚠️ ${moderation.warning}`);
+      return;
+    }
+
     const shareMsg = {
-      id: "share_" + Date.now(),
+      id: createCommunityMessageId("share"),
       serverId: activeServerId,
       channelId: activeChannelId,
       author: userProfile?.username || progress.name || "Student",
@@ -366,20 +399,25 @@ export default function CommunityView() {
       cohort: userCohort,
       level: userLevel,
       streak: progress.streak || 1,
-      text: `✨ **[AI Tutor Breakthrough Shared]**\n\n${sanitized}`,
+      text: `✨ **[AI Tutor Breakthrough Shared]**\n\n${moderation.text}`,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     };
 
     setMessages(prev => [...prev, shareMsg]);
     setShowShareModal(false);
     setPendingCommunityShare(null);
+    setModerationNotice("");
     awardXP(25, "Shared insight with community");
     showToast(`🎉 Insight published to #${activeChannel.name}! +25 XP`);
   };
 
-  // ── PHASE 2: Filter Messages Strictly by activeChannelId & activeServerId ──
+  // ── PHASE 2: Filter by location and the reader's cohort-safety policy ──
   const filteredMessages = messages.filter(
-    msg => (msg.channelId || "general-discourse") === activeChannelId && (!msg.serverId || msg.serverId === activeServerId)
+    msg => (
+      (msg.channelId || "general-discourse") === activeChannelId &&
+      (!msg.serverId || msg.serverId === activeServerId) &&
+      isCommunityMessageVisibleToCohort(msg.text, userCohort)
+    )
   );
 
   const cohortPeers = [
@@ -1092,35 +1130,51 @@ export default function CommunityView() {
               </div>
 
               {/* Message Input Box */}
-              <form
-                onSubmit={handleSendMessage}
+              <div
                 style={{
                   padding: "14px 18px",
                   background: "#121420",
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
-                  display: "flex",
-                  gap: "10px"
+                  borderTop: "1px solid rgba(255,255,255,0.06)"
                 }}
               >
-                <input
-                  type="text"
-                  placeholder={`Message #${activeChannel.name} in ${activeServer.name} (Safety filtered)…`}
-                  value={inputText}
-                  onChange={e => setInputText(e.target.value)}
-                  style={{
-                    flex: 1,
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: "10px",
-                    padding: "10px 14px",
-                    color: "#fff",
-                    fontSize: "0.92rem"
-                  }}
-                />
-                <button type="submit" style={{ padding: "0 18px", fontWeight: 600 }}>
-                  Send
-                </button>
-              </form>
+                <form
+                  onSubmit={handleSendMessage}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  <input
+                    type="text"
+                    maxLength={MAX_COMMUNITY_MESSAGE_LENGTH}
+                    aria-describedby={moderationNotice ? "community-moderation-notice" : undefined}
+                    placeholder={`Message #${activeChannel.name} in ${activeServer.name} (Safety filtered)…`}
+                    value={inputText}
+                    onChange={e => {
+                      setInputText(e.target.value);
+                      if (moderationNotice) setModerationNotice("");
+                    }}
+                    style={{
+                      flex: 1,
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: "10px",
+                      padding: "10px 14px",
+                      color: "#fff",
+                      fontSize: "0.92rem"
+                    }}
+                  />
+                  <button type="submit" style={{ padding: "0 18px", fontWeight: 600 }}>
+                    Send
+                  </button>
+                </form>
+                {moderationNotice && (
+                  <p
+                    id="community-moderation-notice"
+                    role="alert"
+                    style={{ margin: "9px 2px 0", color: "#fbbf24", fontSize: "12px", lineHeight: "1.4" }}
+                  >
+                    ⚠️ {moderationNotice}
+                  </p>
+                )}
+              </div>
             </>
           )}
 
@@ -1219,8 +1273,12 @@ export default function CommunityView() {
             </p>
             <textarea
               rows={5}
+              maxLength={MAX_COMMUNITY_MESSAGE_LENGTH}
               value={shareDraft}
-              onChange={e => setShareDraft(e.target.value)}
+              onChange={e => {
+                setShareDraft(e.target.value);
+                if (moderationNotice) setModerationNotice("");
+              }}
               style={{
                 width: "100%",
                 background: "rgba(0,0,0,0.3)",
