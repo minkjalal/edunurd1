@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Edunurd - AI Study Platform, Exam Preparation & Interactive Learning">
+  <title>Edunurd — AI Study Platform</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+
+  <style>
+    /* ══════════════════════════════════════════════════════════
+       1. CSS VARIABLES & THEMES
+       ══════════════════════════════════════════════════════════ */
+    :root {
+      --bg: #07070b;
+      --card: #13131c;
+      --ca: rgba(19, 19, 28, 0.65);
+      --in: #0d0d14;
+      --hd: rgba(7, 7, 11, 0.85);
+      --bd: #23233a;
+      --tx: #f1f1f8;
+      --mu: #8d8da6;
+      --ac: #8b5cf6;
+      --ac2: #22d3ee;
+      --g1: #1d1038;
+      --r: #ef4444;
+      --o: #f59e0b;
+      --g: #22c55e;
+      color-scheme: dark;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f4f5fb;
+      --card: #ffffff;
+      --ca: rgba(255, 255, 255, 0.85);
+      --in: #eef0f8;
+      --hd: rgba(244, 245, 251, 0.9);
+      --bd: #dfe2ef;
+      --tx: #161827;
+      --mu: #5d627c;
+      --ac: #6d4ae6;
+      --ac2: #0e7490;
+      --g1: #e2d9ff;
+      --r: #dc2626;
+      --o: #b45309;
+      --g: #15803d;
+      color-scheme: light;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       2. BASE & RESET
+       ══════════════════════════════════════════════════════════ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
+    body {
+      background: radial-gradient(900px 500px at 80% -10%, var(--g1), transparent), var(--bg);
+      color: var(--tx);
+      font: 16px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow-x: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    a {
+      color: var(--ac2);
+      text-decoration: none;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin: 6px 0 4px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--mu);
+      margin: 22px 0 8px;
+      font-weight: 600;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       3. APP LAYOUT (HEADER, ASIDE DRAWER, MAIN CONTAINER)
+       ══════════════════════════════════════════════════════════ */
+    #bgf {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: sticky;
+      top: env(safe-area-inset-top, 0px);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--hd);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bd);
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    #mb {
+      background: none;
+      border: 1px solid var(--bd);
+      font-size: 20px;
+      padding: 6px 12px;
+      color: var(--tx);
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    #thb {
+      position: fixed;
+      top: calc(10px + env(safe-area-inset-top, 0px));
+      right: 14px;
+      z-index: 20;
+      padding: 6px 12px;
+      font-size: 18px;
+      border-radius: 12px;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 14px 16px 60px;
+    }
+
+    aside {
+      overflow-y: auto;
+      position: fixed;
+      z-index: 30;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 80%;
+      max-width: 320px;
+      background: var(--in);
+      border-right: 1px solid var(--bd);
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 14px 24px;
+      transform: translateX(-105%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
+    }
+
+    aside.open {
+      transform: translateX(0);
+    }
+
+    aside button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      color: var(--tx);
+      margin: 3px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 0;
+      font-size: 15px;
+    }
+
+    aside button.on {
+      background: linear-gradient(90deg, rgba(139, 92, 246, 0.25), transparent);
+      color: var(--ac2);
+      font-weight: 600;
+    }
+
+    aside.open button {
+      animation: slideInNav 0.35s backwards;
+      animation-delay: calc(var(--n, 0) * 35ms);
+    }
+
+    @keyframes slideInNav {
+      from { opacity: 0; transform: translateX(-18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    #sh {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+    }
+
+    #sh.open {
+      display: block;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       4. CARDS & GRID COMPONENTS
+       ══════════════════════════════════════════════════════════ */
+    .card {
+      background: var(--ca);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid var(--bd);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      animation: cardIn 0.4s backwards;
+      animation-delay: calc(var(--i, 0) * 60ms);
+    }
+
+    .card:hover {
+      border-color: var(--ac);
+      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 580px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .dg {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .dg > * {
+      margin: 0 !important;
+    }
+
+    @media (min-width: 640px) {
+      .dg { grid-template-columns: 1fr 1fr; }
+    }
+
+    .tile {
+      text-align: left;
+      background: var(--card);
+      color: var(--tx);
+      border: 1px solid var(--bd);
+      padding: 14px;
+      border-radius: 18px;
+      width: 100%;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .tile:hover {
+      border-color: var(--ac2);
+      transform: translateY(-2px);
+    }
+
+    .tile b {
+      display: block;
+      font-size: 17px;
+    }
+
+    .mu {
+      color: var(--mu);
+      font-size: 14px;
+    }
+
+    .big {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .warn {
+      color: var(--o);
+      font-size: 13px;
+    }
+
+    .hide {
+      display: none !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       5. BUTTONS, INPUTS & CONTROLS
+       ══════════════════════════════════════════════════════════ */
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 15px;
+      background: linear-gradient(135deg, var(--ac), #6366f1);
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, filter 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    button:hover {
+      filter: brightness(1.15);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.96);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.alt {
+      background: var(--card);
+      border: 1px solid var(--bd);
+      color: var(--tx);
+    }
+
+    .chip {
+      background: var(--card);
+      border: 1px solid var(--bd);
+      color: var(--tx);
+      margin: 4px 4px 0 0;
+      font-size: 13px;
+      padding: 7px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .chip:hover {
+      border-color: var(--ac);
+      background: rgba(139, 92, 246, 0.1);
+    }
+
+    input[type=text],
+    input[type=email],
+    input[type=password] {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--bd);
+      background: var(--in);
+      color: var(--tx);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type=text]:focus,
+    input[type=email]:focus,
+    input[type=password]:focus {
+      border-color: var(--ac);
+    }
+
+    .fi {
+      display: block;
+      width: 100%;
+      margin: 6px 0;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       6. STATS, PROGRESS & BADGES
+       ══════════════════════════════════════════════════════════ */
+    .ring {
+      width: 110px;
+      height: 110px;
+      flex: none;
+    }
+
+    .ring circle {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+    }
+
+    #fg {
+      stroke: var(--ac2);
+      transition: stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #rb {
+      stroke: var(--bd);
+    }
+
+    .pbar {
+      height: 6px;
+      background: var(--bd);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+
+    .pbar i {
+      display: block;
+      height: 100%;
+      width: var(--b, 0%);
+      background: linear-gradient(90deg, var(--ac), var(--ac2));
+      animation: growBar 0.6s ease-out;
+    }
+
+    @keyframes growBar {
+      from { width: var(--a, 0%); }
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       7. QUIZ ENGINE OPTIONS
+       ══════════════════════════════════════════════════════════ */
+    .opt {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-top: 8px;
+      background: var(--in);
+      border: 1px solid var(--bd);
+      color: var(--tx);
+      padding: 12px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s;
+    }
+
+    .opt:not(:disabled):hover {
+      transform: translateX(4px);
+      border-color: var(--ac);
+    }
+
+    .good {
+      border-color: var(--g) !important;
+      background: rgba(34, 197, 94, 0.18) !important;
+      animation: popAnswer 0.4s;
+    }
+
+    .bad {
+      border-color: var(--r) !important;
+      background: rgba(239, 68, 68, 0.2) !important;
+      animation: shakeAnswer 0.4s;
+    }
+
+    @keyframes popAnswer {
+      50% { transform: scale(1.03); }
+    }
+
+    @keyframes shakeAnswer {
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       8. CALENDAR & SCHEDULE
+       ══════════════════════════════════════════════════════════ */
+    .cal {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+
+    .cal b {
+      color: var(--mu);
+      font-size: 12px;
+      padding: 4px 0;
+    }
+
+    .day {
+      padding: 10px 0;
+      background: var(--in);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      color: var(--tx);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .day.has {
+      border-color: var(--ac2);
+    }
+
+    .day.td {
+      color: var(--ac2);
+      font-weight: 700;
+    }
+
+    .day.sel {
+      background: var(--ac);
+      color: #fff;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       9. 3D FLASHCARDS MODULE
+       ══════════════════════════════════════════════════════════ */
+    .fc-box {
+      perspective: 1000px;
+      margin: 16px 0;
+      width: 100%;
+    }
+
+    .fc-card {
+      width: 100%;
+      min-height: 220px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .fc-card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .fc-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 18px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border: 1px solid var(--bd);
+      background: var(--card);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .fc-back {
+      transform: rotateY(180deg);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(34, 211, 238, 0.12));
+      border-color: var(--ac);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       10. CHAT & AI TUTOR BUBBLES
+       ══════════════════════════════════════════════════════════ */
+    .msg {
+      padding: 12px 14px;
+      border-radius: 16px;
+      margin: 8px 0;
+      max-width: 88%;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    .me {
+      background: var(--ac);
+      margin-left: auto;
+      color: #fff;
+    }
+
+    .ai {
+      background: var(--card);
+      border: 1px solid var(--bd);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       11. NOTES & CANVASES
+       ══════════════════════════════════════════════════════════ */
+    #nt {
+      min-height: 240px;
+      background: var(--card);
+      border: 1px solid var(--bd);
+      border-radius: 14px;
+      padding: 14px;
+      outline: none;
+      line-height: 1.6;
+    }
+
+    #vcv {
+      background: #0d0d14;
+      border-radius: 12px;
+    }
+
+    #td {
+      fill: var(--tx);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       12. OVERLAYS, TOASTS & SPLASH
+       ══════════════════════════════════════════════════════════ */
+    .ov {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #tst {
+      position: fixed;
+      top: calc(12px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 80;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 92vw;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--card);
+      border: 1px solid var(--ac2);
+      border-radius: 14px;
+      padding: 12px 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      animation: toastIn 0.35s ease-out;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .rp {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35);
+      transform: scale(0);
+      animation: rippleEffect 0.6s ease-out;
+      pointer-events: none;
+    }
+
+    @keyframes rippleEffect {
+      to { transform: scale(5); opacity: 0; }
+    }
+
+    .pg {
+      animation: pageTransition 0.35s ease-out;
+    }
+
+    @keyframes pageTransition {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .trun {
+      animation: pulseTimer 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.4));
+    }
+
+    @keyframes pulseTimer {
+      50% { transform: scale(1.04); }
+    }
+
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s ease;
+      cursor: pointer;
+    }
+
+    #intro.out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #intro svg {
+      width: 150px;
+      height: 150px;
+      filter: drop-shadow(0 0 18px rgba(139, 92, 246, 0.65));
+    }
+
+    .lr {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 277;
+      stroke-dashoffset: 277;
+      animation: drawLogoRect 1.2s ease-out forwards;
+    }
+
+    @keyframes drawLogoRect {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .lt {
+      display: inline-block;
+      animation: letterUp 0.5s backwards;
+    }
+
+    @keyframes letterUp {
+      from { opacity: 0; transform: translateY(20px); }
+    }
+
+    .ib {
+      width: 160px;
+      height: 4px;
+      background: var(--bd);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 22px;
+    }
+
+    .ib i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--ac), var(--ac2));
+      animation: loadBar 2.4s ease-in-out forwards;
+    }
+
+    @keyframes loadBar {
+      from { width: 0; }
+      to   { width: 100%; }
+    }
+
+    .bk {
+      animation: bookRise 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) 0.6s backwards;
+    }
+
+    @keyframes bookRise {
+      from { transform: translateY(24px); opacity: 0; }
+    }
+
+    .lb {
+      transform-origin: 50px 32px;
+      animation: bulbPop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 1.2s backwards, bulbPulse 2.4s ease-in-out 2s infinite;
+    }
+
+    @keyframes bulbPop {
+      from { transform: scale(0); opacity: 0; }
+    }
+
+    @keyframes bulbPulse {
+      50% { transform: scale(1.08); filter: drop-shadow(0 0 6px #fde047); }
+    }
+  </style>
+</head>
+<body>
+  <!-- React Mount Point -->
+  <div id="root"></div>
+
+  <!-- Backend Client Shim (exposes window.claude) -->
+  <script src="/shim.js"></script>
+
+  <!-- Compiled React 18 Application Bundle -->
+  <script src="/bundle.js" defer></script>
+</body>
+</html>
