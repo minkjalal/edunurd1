@@ -37,7 +37,18 @@ export default function NavigationDrawer() {
             onClick={() => navigateTo(item.id)}
             style={{ "--n": idx }}
           >
-            <span>{item.icon}</span> &nbsp;
+            {item.image ? (
+              <img
+                src={item.image}
+                alt=""
+                aria-hidden="true"
+                width="22"
+                height="22"
+                style={{ verticalAlign: "middle", objectFit: "contain", borderRadius: "4px" }}
+              />
+            ) : (
+              <span>{item.icon}</span>
+            )} &nbsp;
             <span>{item.label}</span>
           </button>
         ))}

@@ -334,6 +334,19 @@ export default function AITutorView() {
     try { rec.start(); } catch {}
   };
 
+  const startNewChat = () => {
+    if (busy) return;
+    setMessages([]);
+    setInputText("");
+    setIsListening(false);
+    setRobotExpression("idle");
+    if (expressionTimerRef.current) {
+      clearTimeout(expressionTimerRef.current);
+      expressionTimerRef.current = null;
+    }
+    showToast("✨ New chat started.");
+  };
+
   return (
     <div className="pg">
       {/* Robot Eyes strictly at top */}
@@ -370,6 +383,15 @@ export default function AITutorView() {
       <div className="card" style={{ marginBottom: "14px", padding: "14px 16px" }}>
         <div className="row" style={{ gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <b style={{ marginRight: "4px" }}>Tutor mode</b>
+          <button
+            className="alt"
+            disabled={busy}
+            onClick={startNewChat}
+            title="Clear this conversation and start a new chat"
+            aria-label="Start a new chat"
+          >
+            ＋ New chat
+          </button>
           <button
             className={tutorMode === "offline" ? "" : "alt"}
             disabled={busy}

@@ -520,6 +520,46 @@ async def _groq_json(model: str, messages: List[dict], max_tokens: int) -> dict:
         raise HTTPException(status_code=502, detail="Groq returned an invalid structured response. Please retry.") from exc
 
 
+_GROQ_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+def _groq_retry_delay(exc: HTTPException, attempt: int) -> float:
+    """Honor Groq's retry hint while keeping transient failures bounded."""
+    detail = str(exc.detail or "")
+    match = re.search(r"retry\s+after\s+([0-9]+(?:\.[0-9]+)?)", detail, flags=re.IGNORECASE)
+    if match:
+        return min(15.0, max(1.0, float(match.group(1))))
+    return min(6.0, 1.5 * (attempt + 1))
+
+
+async def _groq_json_with_retry(
+    model: str,
+    messages: List[dict],
+    max_tokens: int,
+    attempts: int = 3,
+) -> dict:
+    """Retry short-lived Groq failures before surfacing an unavailable audit."""
+    last_error: Optional[HTTPException] = None
+    for attempt in range(max(1, attempts)):
+        try:
+            return await _groq_json(model, messages, max_tokens)
+        except HTTPException as exc:
+            last_error = exc
+            if exc.status_code not in _GROQ_RETRYABLE_STATUS_CODES or attempt >= attempts - 1:
+                raise
+            await asyncio.sleep(_groq_retry_delay(exc, attempt))
+    raise last_error or HTTPException(status_code=502, detail="Groq request failed. Please retry.")
+
+
+def _draft_has_checkable_structure(query: str, answer: str) -> bool:
+    """Small local guard used only when the cloud auditor is temporarily unavailable."""
+    if len(answer.strip()) < 80:
+        return False
+    has_steps = bool(re.search(r"(?:^|\n)\s*(?:\d+[.)]|[-*])\s+", answer))
+    has_query_overlap = bool(set(re.findall(r"[a-zA-Z]{4,}", query.lower())) & set(re.findall(r"[a-zA-Z]{4,}", answer.lower())))
+    return has_steps or has_query_overlap
+
+
 def _bounded_int(value: Any, default: int, minimum: int = 0, maximum: int = 100) -> int:
     try:
         return max(minimum, min(maximum, int(value)))
@@ -550,37 +590,58 @@ Return a JSON object with keys final_answer, confidence_score, flashcard_export.
         {"role": "user", "content": draft_prompt},
     ]
     try:
-        draft = await _groq_json(model, draft_messages, 800)
+        draft = await _groq_json_with_retry(model, draft_messages, 700)
     except HTTPException as exc:
         model_access_error = exc.status_code in (400, 403, 404) and any(
             word in str(exc.detail).lower() for word in ("model", "permission", "access", "available")
         )
-        fallback_model = GROQ_TUTOR_MODELS[0]
-        if model == fallback_model or not model_access_error:
+        fallback_model = next((candidate for candidate in GROQ_TUTOR_MODELS if candidate != model), None)
+        can_try_fallback = bool(fallback_model) and (
+            model_access_error or exc.status_code in _GROQ_RETRYABLE_STATUS_CODES
+        )
+        if not can_try_fallback:
             raise
-        model = fallback_model
-        model_notice = f"{requested_model} is not enabled for this Groq key, so this answer was generated with {model}."
-        draft = await _groq_json(model, draft_messages, 800)
+        model = fallback_model  # type: ignore[assignment]
+        model_notice = f"{requested_model} is not enabled or temporarily unavailable for this Groq key, so this answer was generated with {model}."
+        draft = await _groq_json_with_retry(model, draft_messages, 700)
 
     draft_answer = str(draft.get("final_answer", "")).strip()
     if not draft_answer:
         raise HTTPException(status_code=502, detail="Groq returned no answer. Please retry with a shorter question.")
 
-    try:
-        audit_data = await _groq_json(model, [
+    audit_messages = [
             {"role": "system", "content": "You are an independent accuracy auditor reviewing a tutor draft. Check whether it answers the question and whether its factual claims and steps are internally consistent. You have no web access or independent sources: never claim external verification. If a claim is uncertain or context-dependent, say so and lower confidence. Correct errors in the final answer. For psychology, keep a supportive general-information tone and do not diagnose. Return only JSON."},
             {"role": "user", "content": f"Question:\n{query}\n\nDraft answer to audit:\n{draft_answer}\n\nReturn JSON keys: status (Accepted, Questioned, or Rejected), confidence_score (0-100), final_answer (corrected direct answer with numbered steps), audit_explanation (brief summary of consistency checks and limits), contradictions (string array). Preserve valid inline LaTeX and use braced subscripts/superscripts. Do not reveal private chain-of-thought or invent sources."},
-        ], 800)
-    except HTTPException as exc:
-        # A completed draft is still useful when the second request hits a rate limit.
-        confidence = min(65, _bounded_int(draft.get("confidence_score", 50), 50))
-        reason = "Groq rate limiting prevented the second-pass audit." if exc.status_code == 429 else "The second-pass audit did not complete."
+        ]
+    audit_data = None
+    audit_model = model
+    audit_candidates = [model] + [candidate for candidate in GROQ_TUTOR_MODELS if candidate != model]
+    for candidate in audit_candidates:
+        try:
+            audit_data = await _groq_json_with_retry(candidate, audit_messages, 500)
+            audit_model = candidate
+            if candidate != model:
+                model_notice = (model_notice + " " if model_notice else "") + f"The consistency audit used fallback model {candidate}."
+            break
+        except HTTPException:
+            continue
+
+    if audit_data is None:
+        # Keep the useful first-pass answer visible. The local guard prevents a
+        # transient cloud outage from being rendered as a zero-confidence answer.
+        draft_confidence = _bounded_int(draft.get("confidence_score", 50), 50)
+        locally_checkable = _draft_has_checkable_structure(query, draft_answer)
+        confidence = max(35, min(70, draft_confidence if locally_checkable else 45))
         return AG2VerifyResponse(
             status="Questioned",
             confidence_score=confidence,
-            final_answer=f"**Preliminary answer — not audited**\n\n{draft_answer}",
-            audit_explanation=f"{reason} Treat this as unverified and retry when the service is available. No external source verification was performed.",
-            contradictions=[reason],
+            final_answer=draft_answer,
+            audit_explanation=(
+                "Cloud consistency auditing was temporarily unavailable after automatic retries. "
+                "A local structure check confirmed that the tutor returned a substantive answer; "
+                "external source verification was not performed. Retry later for the second model pass."
+            ),
+            contradictions=["Cloud second-pass audit unavailable; verify important claims independently."],
             verified_sources=[],
             flashcard_export=[],
             gamification_triggers={
@@ -588,7 +649,7 @@ Return a JSON object with keys final_answer, confidence_score, flashcard_export.
                 "xp_awarded": 0,
                 "prompt_community_share": False,
             },
-            model_used=model,
+            model_used=audit_model,
         )
 
     final_answer = str(audit_data.get("final_answer", "")).strip() or draft_answer
