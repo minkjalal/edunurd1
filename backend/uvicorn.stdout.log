@@ -22,3 +22,6 @@ INFO:     127.0.0.1:54429 - "OPTIONS /api/study-plan HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54429 - "POST /api/study-plan HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54429 - "POST /api/study-plan HTTP/1.1" 200 OK
 INFO:     127.0.0.1:52710 - "POST /api/study-plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63060 - "OPTIONS /api/study-plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63060 - "POST /api/study-plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63651 - "POST /api/study-plan HTTP/1.1" 200 OK
