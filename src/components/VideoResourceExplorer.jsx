@@ -10,8 +10,38 @@
  * - Auto-awards XP for watching educational videos
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
+
+/** Load the official YouTube IFrame API once and share it across video cards. */
+function loadYouTubeIframeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (window.__edunerdYouTubeApiPromise) return window.__edunerdYouTubeApiPromise;
+
+  window.__edunerdYouTubeApiPromise = new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("YouTube player API timed out")), 10000);
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReady === "function") previousReady();
+      window.clearTimeout(timeout);
+      if (window.YT?.Player) resolve(window.YT);
+      else reject(new Error("YouTube player API did not initialize"));
+    };
+
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.async = true;
+      script.onerror = () => {
+        window.clearTimeout(timeout);
+        reject(new Error("YouTube player API could not load"));
+      };
+      document.head.appendChild(script);
+    }
+  });
+
+  return window.__edunerdYouTubeApiPromise;
+}
 
 /**
  * Sanitizes any raw YouTube URL (watch, youtu.be, embed, shorts)
@@ -117,7 +147,7 @@ export const VERIFIED_EDUCATIONAL_VIDEOS = [
 ];
 
 export default function VideoResourceExplorer() {
-  const { awardXP, showToast } = useApp();
+  const { awardXP, showToast, recordStudySeconds } = useApp();
   const [selectedVideo, setSelectedVideo] = useState(VERIFIED_EDUCATIONAL_VIDEOS[0]);
   const [subjectFilter, setSubjectFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,6 +155,102 @@ export default function VideoResourceExplorer() {
   const [customError, setCustomError] = useState("");
   const [embedError, setEmbedError] = useState(false);
   const [watchedVideos, setWatchedVideos] = useState(new Set());
+  const [sessionWatchSeconds, setSessionWatchSeconds] = useState(0);
+  const iframeRef = useRef(null);
+  const playerRef = useRef(null);
+
+  // Dashboard study-plan links include `topic`. Resolve that context to the
+  // closest verified lecture so the destination opens the right video instead
+  // of always falling back to the first item in the library.
+  useEffect(() => {
+    const applyRouteTopic = () => {
+      const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+      const topic = (params.get("topic") || "").trim();
+      if (!topic) return;
+      const needle = topic.toLowerCase();
+      const match = VERIFIED_EDUCATIONAL_VIDEOS.find(video => {
+        const haystack = [video.title, video.subject, video.summary, ...(video.tags || [])].join(" ").toLowerCase();
+        return needle.split(/\s+/).filter(Boolean).some(word => word.length > 3 && haystack.includes(word));
+      });
+      setSearchQuery(topic);
+      if (match) {
+        setSubjectFilter(match.subject);
+        setSelectedVideo(match);
+        setEmbedError(false);
+      } else {
+        setSubjectFilter("All");
+      }
+    };
+    applyRouteTopic();
+    window.addEventListener("hashchange", applyRouteTopic);
+    return () => window.removeEventListener("hashchange", applyRouteTopic);
+  }, []);
+
+  /**
+   * Count only seconds reported while the embedded YouTube player is actually
+   * PLAYING. Pausing, ending, changing videos, hiding the tab, or navigating
+   * away flushes the partial second and stops the interval.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let trackingInterval = null;
+    let lastTick = 0;
+
+    const flushElapsed = () => {
+      if (!lastTick) return;
+      const now = Date.now();
+      const elapsed = Math.max(0, Math.floor((now - lastTick) / 1000));
+      if (elapsed > 0) {
+        lastTick += elapsed * 1000;
+        setSessionWatchSeconds(prev => prev + elapsed);
+        if (recordStudySeconds) recordStudySeconds(elapsed, "youtube");
+      }
+    };
+
+    const stopTracking = () => {
+      flushElapsed();
+      if (trackingInterval) window.clearInterval(trackingInterval);
+      trackingInterval = null;
+      lastTick = 0;
+    };
+
+    const startTracking = () => {
+      if (trackingInterval || document.hidden) return;
+      lastTick = Date.now();
+      trackingInterval = window.setInterval(flushElapsed, 1000);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) stopTracking();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    loadYouTubeIframeApi()
+      .then(YT => {
+        if (cancelled || !iframeRef.current) return;
+        playerRef.current = new YT.Player(iframeRef.current, {
+          events: {
+            onStateChange: event => {
+              if (event.data === YT.PlayerState.PLAYING) startTracking();
+              else stopTracking();
+            }
+          }
+        });
+      })
+      .catch(error => {
+        // Playback still works without the API; only verified watch-time
+        // accounting is unavailable when a network blocks the API script.
+        console.warn("YouTube watch-time tracking unavailable:", error.message);
+      });
+
+    return () => {
+      cancelled = true;
+      stopTracking();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (playerRef.current?.destroy) playerRef.current.destroy();
+      playerRef.current = null;
+    };
+  }, [selectedVideo.id, recordStudySeconds]);
 
   const subjects = ["All", "Physics", "Maths", "Computer Science", "Chemistry & Biology"];
 
@@ -132,6 +258,7 @@ export default function VideoResourceExplorer() {
     const matchesSubject = subjectFilter === "All" || video.subject === subjectFilter;
     const matchesQuery = !searchQuery || 
       video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      video.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       video.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
       video.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSubject && matchesQuery;
@@ -206,7 +333,8 @@ export default function VideoResourceExplorer() {
           {!embedError ? (
             <iframe
               key={video.id}
-              src={`https://www.youtube-nocookie.com/embed/${video.id}?rel=0&playsinline=1`}
+              ref={iframeRef}
+              src={`https://www.youtube-nocookie.com/embed/${video.id}?rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`}
               title={video.title}
               referrerPolicy="strict-origin-when-cross-origin"
               style={{
@@ -253,6 +381,10 @@ export default function VideoResourceExplorer() {
               </a>
             </div>
           )}
+        </div>
+
+        <div className="mu" style={{ marginTop: "8px", fontSize: "12px" }}>
+          ⏱️ Verified watch time this session: {Math.floor(sessionWatchSeconds / 60)} min {sessionWatchSeconds % 60}s · counts toward your daily goal while the video is playing.
         </div>
 
         {/* Video Metadata & Tags */}

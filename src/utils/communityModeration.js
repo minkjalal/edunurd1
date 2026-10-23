@@ -37,6 +37,24 @@ const ABUSE_RULES = [
     pattern: /(?:^|[^a-z0-9])s+h+[\W_]*(?:i+|!+|\|+)[\W_]*t+(?=$|[^a-z0-9])/i
   },
   {
+    category: "profanity",
+    // Explicitly blocked by the Community Hub policy. Word boundaries keep
+    // this from hiding ordinary words that only contain the same letters.
+    pattern: /(?:^|[^a-z0-9])h+e+l+l+(?=$|[^a-z0-9])/i
+  },
+  {
+    category: "profanity",
+    // "duck" is included because it was reported in the youth chat as a
+    // prohibited term; the boundary avoids matching words such as "ducky".
+    pattern: /(?:^|[^a-z0-9])d+u+c+k+(?=$|[^a-z0-9])/i
+  },
+  {
+    category: "abusive insult",
+    // Match the requested compound insult, including repeated letters or
+    // punctuation used to evade a simple exact-string filter.
+    pattern: /(?:^|[^a-z0-9])m+o+t+h+e+r+[\W_]*f+[\W_]*(?:(?:u+|v+)[\W_]*)?c+[\W_]*k+(?:e+[\W_]*r+)?(?=$|[^a-z0-9])/i
+  },
+  {
     category: "abusive insult",
     pattern: /(?:^|[^a-z0-9])b+[\W_]*(?:i+|!+|\|+)[\W_]*t+c+h+(?=$|[^a-z0-9])/i
   },

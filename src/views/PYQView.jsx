@@ -17,19 +17,28 @@ export default function PYQView() {
   const { startQuiz } = useApp();
 
   const [archiveParams] = useState(() => new URLSearchParams(window.location.hash.split("?")[1] || ""));
+  const requestedTopic = archiveParams.get("topic") || "";
+  const requestedExam = archiveParams.get("exam") || "";
+  const initialClass = Number(archiveParams.get("class")) || 10;
+  const topicSuggestsComputerScience = /computer|program|algorithm|coding|software/i.test(requestedTopic);
   const [category, setCategory] = useState(archiveParams.has("exam") ? "exam" : "school"); // 'school' | 'exam'
-  const [selectedClass, setSelectedClass] = useState(Number(archiveParams.get("class")) || 10);
+  const [selectedClass, setSelectedClass] = useState(initialClass);
   const [selectedBoard, setSelectedBoard] = useState("CBSE");
-  const [selectedSubject, setSelectedSubject] = useState("Maths");
-  const [selectedExam, setSelectedExam] = useState(archiveParams.get("exam") || "");
+  const [selectedSubject, setSelectedSubject] = useState(topicSuggestsComputerScience ? "Computer Science" : "Maths");
+  const [selectedExam, setSelectedExam] = useState(requestedExam);
   const [examSearch, setExamSearch] = useState("");
 
   const subjects = getSubjectsByClass(selectedClass);
-  const resolvedSubject = subjects.includes(selectedSubject) ? selectedSubject : subjects[0];
+  // Computer Science is not in every school preset, but a generated JEE plan
+  // can target it. Keep it selectable so the paper search contains the topic.
+  const availableSubjects = topicSuggestsComputerScience && !subjects.includes("Computer Science")
+    ? [...subjects, "Computer Science"]
+    : subjects;
+  const resolvedSubject = availableSubjects.includes(selectedSubject) ? selectedSubject : availableSubjects[0];
 
   const resolvedTitle = category === "school"
     ? `Class ${selectedClass} ${selectedBoard} ${resolvedSubject}`
-    : selectedExam;
+    : selectedExam ? `${selectedExam} ${resolvedSubject}` : selectedExam;
 
   const examKind = selectedClass === 10 || selectedClass === 12 ? "board" : "annual exam";
 
@@ -98,7 +107,7 @@ export default function PYQView() {
 
           <h2>Select Subject</h2>
           <div>
-            {subjects.map(s => (
+            {availableSubjects.map(s => (
               <button
                 key={s}
                 className={resolvedSubject === s ? "" : "alt"}

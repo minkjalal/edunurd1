@@ -3,7 +3,7 @@
  * ===================================================================
  * Features:
  * 1. Responsive 3-Column Layout (eliminating vertical stacking sprawl)
- * 2. Dynamic Gemini Flash Study Plan (fetched from /api/study-plan on mount)
+ * 2. Dynamic Groq Study Plan (class, exam goal, topic, and weak-topic aware)
  * 3. Fully wired Quick Notes & Scratchpad (synced with AppContext)
  * 4. Interactive Weak Topics Tracker (add/remove chips with animated tags)
  * 5. Visual Learning & Epistemic AI Tutor Quick Launches
@@ -13,25 +13,46 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useApp } from "../context/AppContext";
 import { calculateLevel, calculateLevelProgress, formatYMD, getAvatarColor } from "../utils/helpers";
+import TutorLogo from "../components/TutorLogo";
 
 const API_BASE = "http://localhost:8000";
+
+const PLAN_CLASS_OPTIONS = ["Class 8", "Class 9", "Class 10", "Class 11", "Class 12"];
+const PLAN_GOAL_OPTIONS = ["General", "JEE", "NEET", "Boards", "Olympiad", "CUET"];
+const PLAN_ROUTES = ["/resources?tab=videos", "/resources?tab=pyq", "/study", "/dashboard"];
+
+// Keep generated links inside the Edunurd app. The backend validates these
+// values too, but this guard protects old offline data in localStorage.
+function routeForPlanItem(item) {
+  if (PLAN_ROUTES.includes(item?.route)) return item.route;
+  const text = `${item?.topic || ""} ${item?.task || ""}`.toLowerCase();
+  if (text.includes("pyq") || text.includes("previous year") || text.includes("question")) return "/resources?tab=pyq";
+  if (text.includes("video") || text.includes("lecture") || text.includes("watch")) return "/resources?tab=videos";
+  if (text.includes("note") || text.includes("summary") || text.includes("formula")) return "/dashboard";
+  return "/study";
+}
+
+function isFlashcardPlanItem(item) {
+  const text = `${item?.topic || ""} ${item?.task || ""}`.toLowerCase();
+  return text.includes("flashcard") || text.includes("flash card") || text.includes("recall deck") || text.includes("cards");
+}
 
 // Fallback study plans if backend is initializing or network is unavailable
 const DEFAULT_STUDY_PLANS = {
   Junior: [
-    { time: "15 mins", topic: "Solar System", task: "Interactive Planet Orbit Simulator & Gravity Observation", pedagogy: "Flipped Classroom" },
-    { time: "20 mins", topic: "Basic Fractions", task: "Visual Pizza Slicing Math Challenge & Self-Check", pedagogy: "Active Recall" },
-    { time: "10 mins", topic: "Plant Biology", task: "Explain Photosynthesis to the AI Robot Tutor", pedagogy: "The Protégé Effect" }
+    { time: "15 mins", topic: "Solar System", task: "Interactive Planet Orbit Simulator & Gravity Observation", pedagogy: "Flipped Classroom", route: "/resources?tab=videos" },
+    { time: "20 mins", topic: "Basic Fractions", task: "Visual Pizza Slicing Math Challenge & Self-Check", pedagogy: "Active Recall", route: "/study" },
+    { time: "10 mins", topic: "Plant Biology", task: "Write a simple summary of photosynthesis in your notes", pedagogy: "The Protégé Effect", route: "/dashboard" }
   ],
   Teen: [
-    { time: "20 mins", topic: "Thermodynamics", task: "First-Principles Derivation of Carnot Cycle Efficiency", pedagogy: "Feynman Technique" },
-    { time: "30 mins", topic: "Calculus", task: "Solve 5 High-Yield Previous Year Integration Problems", pedagogy: "Active Recall" },
-    { time: "15 mins", topic: "Electromagnetism", task: "Isolate & Eliminate single biggest doubt on Lenz's Law", pedagogy: "The Muddiest Point" }
+    { time: "20 mins", topic: "Thermodynamics", task: "First-Principles Derivation of Carnot Cycle Efficiency", pedagogy: "Feynman Technique", route: "/study" },
+    { time: "30 mins", topic: "Calculus", task: "Solve 5 High-Yield Previous Year Integration Problems", pedagogy: "Active Recall", route: "/resources?tab=pyq" },
+    { time: "15 mins", topic: "Electromagnetism", task: "Watch a concise revision lecture on Lenz's Law", pedagogy: "The Muddiest Point", route: "/resources?tab=videos" }
   ],
   Senior: [
-    { time: "25 mins", topic: "Quantum Mechanics", task: "Hermitian Operators & Wavefunction Collapse Rigorous Derivation", pedagogy: "Feynman Technique" },
-    { time: "30 mins", topic: "Organic Synthesis", task: "Stereospecific Retrosynthetic Analysis & Mechanism Audit", pedagogy: "Active Recall" },
-    { time: "20 mins", topic: "Advanced Physics", task: "Epistemic Debate: Boundary Conditions in Noether Symmetries", pedagogy: "Think-Pair-Share" }
+    { time: "25 mins", topic: "Quantum Mechanics", task: "Hermitian Operators & Wavefunction Collapse Rigorous Derivation", pedagogy: "Feynman Technique", route: "/study" },
+    { time: "30 mins", topic: "Organic Synthesis", task: "Stereospecific Retrosynthetic Analysis & Mechanism Audit", pedagogy: "Active Recall", route: "/resources?tab=pyq" },
+    { time: "20 mins", topic: "Advanced Physics", task: "Ask the tutor to audit boundary conditions in Noether symmetries", pedagogy: "Think-Pair-Share", route: "/study" }
   ]
 };
 
@@ -42,6 +63,8 @@ export default function DashboardView() {
     mode,
     progress,
     saveProgress,
+    recordStudyMinutes,
+    resetTodayStudyProgress,
     checkDailyGoal,
     navigateTo,
     syncStatus,
@@ -57,11 +80,22 @@ export default function DashboardView() {
   const [newTopicInput, setNewTopicInput] = useState("");
   const [studyPlan, setStudyPlan] = useState([]);
   const [loadingPlan, setLoadingPlan] = useState(false);
-  const [planSource, setPlanSource] = useState("fetching"); // "gemini" | "local" | "fetching"
+  const [planSource, setPlanSource] = useState("fetching"); // "groq" | "gemini" | "local" | "fetching"
+  const [planClassLevel, setPlanClassLevel] = useState(() => {
+    try { return localStorage.getItem("edunerd_plan_class") || "Class 10"; } catch { return "Class 10"; }
+  });
+  const [planExamGoal, setPlanExamGoal] = useState(() => {
+    try { return localStorage.getItem("edunerd_plan_goal") || "General"; } catch { return "General"; }
+  });
+  const [planTopic, setPlanTopic] = useState(() => {
+    try { return localStorage.getItem("edunerd_plan_topic") || ""; } catch { return ""; }
+  });
 
   const todayStr = formatYMD(new Date());
+  const todayLabel = new Date().toDateString();
   const dailyGoal = progress?.goal || 30;
   const currentMinutes = progress?.min || 0;
+  const videoTodayMinutes = Math.floor((Number(progress?.videoWatchDays?.[todayLabel]) || 0) / 60);
   const progressRatio = Math.min(1, currentMinutes / Math.max(1, dailyGoal));
   const circumference = 2 * Math.PI * 45;
 
@@ -84,12 +118,18 @@ export default function DashboardView() {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // ── 1. Fetch Dynamic Study Plan from Backend (Gemini Flash) ──
+  // ── 1. Fetch a class/goal/topic-aware plan from the Groq-backed API ──
   const fetchStudyPlan = useCallback(async () => {
     setLoadingPlan(true);
     const resolvedCohort = ageCohort || "Teen";
     const currentStreak = progress?.streak || 1;
     const currentWeak = weakTopics && weakTopics.length ? weakTopics : (progress?.weak || []);
+    const selectedTopic = planTopic.trim();
+    try {
+      localStorage.setItem("edunerd_plan_class", planClassLevel);
+      localStorage.setItem("edunerd_plan_goal", planExamGoal);
+      localStorage.setItem("edunerd_plan_topic", selectedTopic);
+    } catch {}
 
     try {
       // Primary: POST /api/study-plan
@@ -98,6 +138,10 @@ export default function DashboardView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           age_cohort: resolvedCohort,
+          class_level: planClassLevel,
+          exam_goal: planExamGoal,
+          topic: selectedTopic,
+          goal_minutes: dailyGoal,
           streak: currentStreak,
           weak_topics: currentWeak
         })
@@ -108,7 +152,7 @@ export default function DashboardView() {
         const items = Array.isArray(data) ? data : data.study_plan;
         if (items && items.length > 0) {
           setStudyPlan(items);
-          setPlanSource("gemini");
+          setPlanSource(data.source || "groq");
           setLoadingPlan(false);
           return;
         }
@@ -116,14 +160,14 @@ export default function DashboardView() {
 
       // Secondary Fallback: GET /api/study-plan
       const getRes = await fetch(
-        `${API_BASE}/api/study-plan?cohort=${encodeURIComponent(resolvedCohort)}&streak=${currentStreak}&weak=${encodeURIComponent(currentWeak.join(","))}`
+        `${API_BASE}/api/study-plan?cohort=${encodeURIComponent(resolvedCohort)}&class_level=${encodeURIComponent(planClassLevel)}&exam_goal=${encodeURIComponent(planExamGoal)}&topic=${encodeURIComponent(selectedTopic)}&goal_minutes=${dailyGoal}&streak=${currentStreak}&weak=${encodeURIComponent(currentWeak.join(","))}`
       );
       if (getRes.ok) {
         const getData = await getRes.json();
         const getItems = Array.isArray(getData) ? getData : getData.study_plan;
         if (getItems && getItems.length > 0) {
           setStudyPlan(getItems);
-          setPlanSource("gemini");
+          setPlanSource(getData.source || "groq");
           setLoadingPlan(false);
           return;
         }
@@ -137,17 +181,62 @@ export default function DashboardView() {
     setStudyPlan(fallbackList);
     setPlanSource("local");
     setLoadingPlan(false);
-  }, [ageCohort, progress?.streak, progress?.weak, weakTopics]);
+  }, [ageCohort, dailyGoal, planClassLevel, planExamGoal, planTopic, progress?.streak, progress?.weak, weakTopics]);
 
   useEffect(() => {
     fetchStudyPlan();
   }, [fetchStudyPlan]);
 
+  const handleLaunchStudyPlan = () => {
+    try {
+      sessionStorage.setItem("edunerd_active_plan", JSON.stringify({
+        classLevel: planClassLevel,
+        examGoal: planExamGoal,
+        topic: planTopic,
+        items: studyPlan,
+      }));
+    } catch {}
+    navigateTo("/study?plan=session");
+  };
+
+  const handleLaunchPlanItem = (item) => {
+    const route = routeForPlanItem(item);
+    const topic = String(item?.topic || planTopic || "").trim();
+    const query = new URLSearchParams();
+    if (topic) query.set("topic", topic);
+    query.set("class", String(planClassLevel).replace(/[^0-9]/g, "") || "10");
+    if (planExamGoal && planExamGoal !== "General") query.set("exam", planExamGoal);
+
+    if (route.startsWith("/resources?tab=videos")) {
+      navigateTo(`/resources?tab=videos&${query.toString()}`);
+      return;
+    }
+    if (route.startsWith("/resources?tab=pyq")) {
+      navigateTo(`/resources?tab=pyq&${query.toString()}`);
+      return;
+    }
+    if (route === "/study") {
+      query.set("tab", isFlashcardPlanItem(item) ? "flashcards" : "tutor");
+      navigateTo(`/study?${query.toString()}`);
+      return;
+    }
+    navigateTo(`/dashboard?focus=notes&${query.toString()}`);
+  };
+
   // ── 2. Handlers ──
   const handleAddStudyTime = () => {
+    if (recordStudyMinutes) {
+      recordStudyMinutes(10, "manual");
+      return;
+    }
+    // Compatibility fallback for an older context bundle.
     const updated = currentMinutes + 10;
     if (checkDailyGoal) checkDailyGoal(updated);
     saveProgress({ min: updated });
+  };
+
+  const handleResetToday = () => {
+    if (resetTodayStudyProgress) resetTodayStudyProgress();
   };
 
   const handleAddTopicSubmit = (e) => {
@@ -303,11 +392,10 @@ export default function DashboardView() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "26px",
                 flexShrink: 0
               }}
             >
-              🤖
+              <TutorLogo size={48} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -415,23 +503,33 @@ export default function DashboardView() {
 
           {/* Today's Focus Gauge & Quick Actions */}
           <div className="card" style={{ padding: "16px", margin: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
               <b style={{ fontSize: "15px" }}>Daily Study Focus</b>
-              <button
-                onClick={handleAddStudyTime}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  borderRadius: "8px",
-                  background: "rgba(34, 211, 238, 0.15)",
-                  color: "var(--ac2)",
-                  border: "1px solid rgba(34, 211, 238, 0.3)",
-                  cursor: "pointer"
-                }}
-              >
-                +10 min Log
-              </button>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                <button
+                  onClick={handleAddStudyTime}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    borderRadius: "8px",
+                    background: "rgba(34, 211, 238, 0.15)",
+                    color: "var(--ac2)",
+                    border: "1px solid rgba(34, 211, 238, 0.3)",
+                    cursor: "pointer"
+                  }}
+                >
+                  +10 min Log
+                </button>
+                <button
+                  className="alt"
+                  onClick={handleResetToday}
+                  title="Clear today's study minutes, goal progress, and YouTube watch time"
+                  style={{ padding: "4px 10px", fontSize: "12px", color: "#fca5a5", borderColor: "rgba(248,113,113,0.4)" }}
+                >
+                  ↺ Reset today
+                </button>
+              </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
@@ -454,11 +552,42 @@ export default function DashboardView() {
               </svg>
               <div>
                 <div style={{ fontSize: "1.25rem", fontWeight: 700 }}>
-                  {currentMinutes} / {dailyGoal} min
+                  {Math.min(currentMinutes, dailyGoal)} / {dailyGoal} min
                 </div>
                 <div className="mu" style={{ fontSize: "12px", marginTop: "2px" }}>
-                  {progressRatio >= 1 ? "🎯 Daily goal achieved! Masterclass!" : `${Math.max(0, dailyGoal - currentMinutes)} min remaining today`}
+                  {progressRatio >= 1
+                    ? `🎯 Goal achieved! ${currentMinutes} min studied today${currentMinutes > dailyGoal ? ` · ${currentMinutes - dailyGoal} extra` : ""}`
+                    : `${Math.max(0, dailyGoal - currentMinutes)} min remaining today`}
                 </div>
+              </div>
+            </div>
+
+            {/* Daily goals are editable in minutes and support multi-hour plans. */}
+            <div style={{ marginTop: "14px", padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid var(--bd)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                <span className="mu" style={{ fontSize: "12px" }}>🎯 Daily goal (10 min–12 hours)</span>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px" }}>
+                  <input
+                    aria-label="Daily study goal in minutes"
+                    type="number"
+                    min="10"
+                    max="720"
+                    step="5"
+                    value={dailyGoal}
+                    onChange={e => {
+                      const nextGoal = Math.max(10, Math.min(720, Number(e.target.value) || 10));
+                      saveProgress({ goal: nextGoal });
+                    }}
+                    style={{ width: "74px", padding: "5px 7px" }}
+                  />
+                  min
+                </label>
+              </div>
+              <div className="mu" style={{ fontSize: "11px", marginTop: "7px" }}>
+                📺 YouTube watch time today: {videoTodayMinutes} min · playback counts while the embedded video is playing.
+              </div>
+              <div className="mu" style={{ fontSize: "11px", marginTop: "4px" }}>
+                ↺ Reset today clears this live counter so you can replay and count the video again.
               </div>
             </div>
 
@@ -485,7 +614,7 @@ export default function DashboardView() {
         </div>
 
         {/* ═════════════════════════════════════════════════════════════
-            COLUMN 2: DYNAMIC GEMINI FLASH STUDY PLAN & NOTES
+            COLUMN 2: DYNAMIC GROQ STUDY PLAN & NOTES
             ═════════════════════════════════════════════════════════════ */}
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           
@@ -512,17 +641,17 @@ export default function DashboardView() {
                     fontWeight: 700,
                     padding: "2px 6px",
                     borderRadius: "4px",
-                    background: planSource === "gemini" ? "rgba(34, 197, 94, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                    color: planSource === "gemini" ? "#4ade80" : "#fbbf24"
+                    background: planSource === "groq" ? "rgba(34, 197, 94, 0.2)" : planSource === "gemini" ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                    color: planSource === "groq" ? "#4ade80" : planSource === "gemini" ? "#93c5fd" : "#fbbf24"
                   }}
                 >
-                  {loadingPlan ? "GENERATING..." : planSource === "gemini" ? "GEMINI FLASH" : "OFFLINE PLAN"}
+                  {loadingPlan ? "GENERATING..." : planSource === "groq" ? "GROQ" : planSource === "gemini" ? "GEMINI" : "OFFLINE PLAN"}
                 </span>
 
                 <button
                   onClick={fetchStudyPlan}
                   disabled={loadingPlan}
-                  title="Regenerate Plan with Gemini Flash"
+                  title="Regenerate plan with Groq"
                   style={{
                     background: "none",
                     border: "1px solid var(--bd)",
@@ -536,6 +665,46 @@ export default function DashboardView() {
                   {loadingPlan ? "⏳" : "🔄"}
                 </button>
               </div>
+            </div>
+
+            {/* These controls make the generated plan explicit and reproducible. */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                gap: "8px",
+                padding: "10px",
+                marginBottom: "12px",
+                borderRadius: "10px",
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(255,255,255,0.06)"
+              }}
+            >
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", color: "var(--mu)" }}>
+                Class
+                <select value={planClassLevel} onChange={e => setPlanClassLevel(e.target.value)} style={{ width: "100%" }}>
+                  {PLAN_CLASS_OPTIONS.map(level => <option key={level} value={level}>{level}</option>)}
+                </select>
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", color: "var(--mu)" }}>
+                Goal / exam
+                <select value={planExamGoal} onChange={e => setPlanExamGoal(e.target.value)} style={{ width: "100%" }}>
+                  {PLAN_GOAL_OPTIONS.map(goal => <option key={goal} value={goal}>{goal}</option>)}
+                </select>
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", color: "var(--mu)", gridColumn: "span 2" }}>
+                Specific topic (optional)
+                <input
+                  value={planTopic}
+                  onChange={e => setPlanTopic(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") fetchStudyPlan(); }}
+                  placeholder="e.g. Electrostatics or Thermodynamics"
+                  style={{ width: "100%" }}
+                />
+              </label>
+              <button className="alt" onClick={fetchStudyPlan} disabled={loadingPlan} style={{ alignSelf: "end", minHeight: "38px" }}>
+                {loadingPlan ? "⏳ Generating…" : "✨ Generate for my choices"}
+              </button>
             </div>
 
             {/* Study Plan Cards List */}
@@ -586,13 +755,20 @@ export default function DashboardView() {
                   <div style={{ fontSize: "13px", color: "var(--tx)", opacity: 0.9, lineHeight: "1.4" }}>
                     {item.task}
                   </div>
+                  <button
+                    className="alt"
+                    onClick={() => handleLaunchPlanItem(item)}
+                    style={{ marginTop: "9px", padding: "5px 9px", fontSize: "11px" }}
+                  >
+                    Open this activity →
+                  </button>
                 </div>
               ))}
             </div>
 
             <div style={{ marginTop: "12px", textAlign: "right" }}>
               <button
-                onClick={() => navigateTo("/study")}
+                onClick={handleLaunchStudyPlan}
                 style={{
                   background: "none",
                   border: "none",
@@ -603,7 +779,7 @@ export default function DashboardView() {
                   padding: 0
                 }}
               >
-                Launch Study Session with this plan →
+                Launch Study Plan Session →
               </button>
             </div>
           </div>

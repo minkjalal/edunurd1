@@ -5,7 +5,7 @@
  * - Current user level and next-level dynamic progress gauge
  * - Daily XP earning limit (400 XP cap)
  * - Interactive "How to Earn XP" responsive mini-card grid wired to app routing
- * - 10 achievement badges with lock/unlock status
+ * - Achievement badges with lock/unlock status and offline downloads
  * - Global cloud leaderboard queried from backend collection 'board'
  */
 
@@ -15,6 +15,36 @@ import { BADGES } from "../constants/badges";
 import { calculateLevel, getLevelBaseXP, calculateLevelProgress, getAvatarColor } from "../utils/helpers";
 
 const TODAY_DATE_STR = new Date().toDateString();
+
+/** Escape static badge labels before placing them in a downloadable SVG. */
+function escapeSvgText(value) {
+  return String(value || "").replace(/[&<>\"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&apos;"
+  }[char]));
+}
+
+/** Create a small offline SVG certificate so unlocked badges can be saved. */
+function downloadBadge(badge) {
+  const title = escapeSvgText(badge.title);
+  const description = escapeSvgText(badge.desc);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+    <defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#17112b"/><stop offset="1" stop-color="#102b3d"/></linearGradient></defs>
+    <rect width="900" height="600" rx="36" fill="url(#bg)"/>
+    <circle cx="450" cy="205" r="116" fill="#8b5cf6" opacity=".25" stroke="#22d3ee" stroke-width="5"/>
+    <text x="450" y="250" text-anchor="middle" font-size="100">${escapeSvgText(badge.icon)}</text>
+    <text x="450" y="370" text-anchor="middle" fill="#f8fafc" font-family="Arial, sans-serif" font-size="40" font-weight="700">${title}</text>
+    <text x="450" y="420" text-anchor="middle" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="22">${description}</text>
+    <text x="450" y="510" text-anchor="middle" fill="#22d3ee" font-family="Arial, sans-serif" font-size="18">EduNerd achievement</text>
+  </svg>`;
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${badge.id}-badge.svg`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 // ── Structured & Actionable XP Earning Rules ──
 const XP_RULES = [
@@ -50,7 +80,12 @@ export default function RewardsView() {
       : Math.round((currentXP / nextLevelXP) * 100)
   ));
 
-  const unlockedBadgesCount = Object.keys(progress?.bdg || {}).length;
+  const unlockedBadges = BADGES.filter(badge => {
+    try { return Boolean(progress?.bdg?.[badge.id] || badge.test(progress, currentLevel)); } catch { return false; }
+  });
+  const unlockedBadgesCount = unlockedBadges.length;
+  const dailyGoalDays = Object.keys(progress?.dailyGoalDays || {}).length;
+  const videoWatchDays = Object.keys(progress?.videoWatchDays || {}).filter(day => (progress.videoWatchDays[day] || 0) >= 60).length;
 
   const fetchLeaderboard = async () => {
     if (mode !== "cloud" || !dbHandle || !uid) {
@@ -198,9 +233,15 @@ export default function RewardsView() {
 
       {/* Badges Grid */}
       <h2>Badges ({unlockedBadgesCount}/{BADGES.length})</h2>
+      <div className="card" style={{ marginBottom: "14px", borderColor: "rgba(34, 211, 238, 0.3)" }}>
+        <b>🎯 Daily-goal days: {dailyGoalDays} · 📺 Educational video days: {videoWatchDays}</b>
+        <p className="mu" style={{ margin: "6px 0 0", fontSize: "12px" }}>
+          Reach your custom daily goal once to earn the First goal day badge. Watch at least one minute in the embedded player on a day to earn the video badges.
+        </p>
+      </div>
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
         {BADGES.map(b => {
-          const isUnlocked = progress.bdg && progress.bdg[b.id];
+          const isUnlocked = Boolean(progress.bdg && progress.bdg[b.id]) || unlockedBadges.includes(b);
           return (
             <div
               key={b.id}
@@ -215,6 +256,15 @@ export default function RewardsView() {
               </div>
               <b>{b.title}</b>
               <div className="mu" style={{ fontSize: "12px" }}>{b.desc}</div>
+              {isUnlocked && (
+                <button
+                  className="alt"
+                  style={{ marginTop: "10px", padding: "5px 8px", fontSize: "11px" }}
+                  onClick={() => downloadBadge(b)}
+                >
+                  ⬇ Download badge
+                </button>
+              )}
             </div>
           );
         })}

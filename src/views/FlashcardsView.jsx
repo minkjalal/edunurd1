@@ -8,7 +8,7 @@
  * - Generative AI flashcard builder powered by the local FastAPI/Groq proxy
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { FLASHCARD_PRESETS, FLASHCARD_DECK_NAMES } from "../constants/flashcards";
 import { triggerConfettiBurst } from "../utils/confetti";
@@ -28,6 +28,7 @@ export default function FlashcardsView() {
   const [aiTopic, setAiTopic] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generationError, setGenerationError] = useState("");
+  const autoGenerateStarted = useRef(false);
 
   // Compute active deck cards
   const customCards = (progress.fc || []).map(c => Object.assign({ t: "Custom" }, c));
@@ -104,8 +105,8 @@ export default function FlashcardsView() {
     setCardIndex(updatedCustom.length - 1);
   };
 
-  const handleAIGenerate = async () => {
-    const topic = aiTopic.trim();
+  const handleAIGenerate = async (topicOverride = "") => {
+    const topic = String(topicOverride || aiTopic).trim();
     if (!topic) return showToast("Please enter a topic to generate cards!");
 
     setGenerating(true);
@@ -141,6 +142,17 @@ export default function FlashcardsView() {
       setGenerating(false);
     }
   };
+
+  // Study-plan flashcard links open this view with a topic. Generate the deck
+  // immediately so the learner sees new cards instead of an empty generator.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    const requestedTopic = (params.get("topic") || "").trim();
+    if (params.get("tab") !== "flashcards" || !requestedTopic || autoGenerateStarted.current) return;
+    autoGenerateStarted.current = true;
+    setAiTopic(requestedTopic);
+    handleAIGenerate(requestedTopic);
+  }, []);
 
   return (
     <div className="pg">

@@ -15,5 +15,12 @@ export const BADGES = [
   { id: "s3",      icon: "📅", title: "On a roll",     desc: "3-day streak",              test: s => (s.streak || 0) >= 3 },
   { id: "s7",      icon: "🚀", title: "Unstoppable",   desc: "7-day streak",              test: s => (s.streak || 0) >= 7 },
   { id: "post",    icon: "💬", title: "Voice",         desc: "Post in the community",     test: s => (s.pc || 0) >= 1 },
-  { id: "l5",      icon: "⭐", title: "Rising star",   desc: "Reach level 5",             test: (s, lv) => lv >= 5 }
+  { id: "l5",      icon: "⭐", title: "Rising star",   desc: "Reach level 5",             test: (s, lv) => lv >= 5 },
+  // Daily-goal completion is recorded by calendar date, so a 10-minute goal
+  // and a multi-hour goal both produce the same first-day achievement.
+  { id: "goal1",   icon: "🌟", title: "First goal day", desc: "Reach your daily goal on 1 day", test: s => Object.keys(s.dailyGoalDays || {}).length >= 1 },
+  // Distinct calendar days with at least one minute of embedded educational
+  // YouTube playback. The history is stored in progress.videoWatchDays.
+  { id: "video1",  icon: "📺", title: "First watch day", desc: "Watch an educational video on 1 day", test: s => Object.keys(s.videoWatchDays || {}).filter(day => (s.videoWatchDays[day] || 0) >= 60).length >= 1 },
+  { id: "video10", icon: "🏆", title: "Video scholar",    desc: "Watch educational videos on 10 days", test: s => Object.keys(s.videoWatchDays || {}).filter(day => (s.videoWatchDays[day] || 0) >= 60).length >= 10 }
 ];

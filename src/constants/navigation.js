@@ -12,7 +12,7 @@
 
 export const MENU_ITEMS = [
   { id: "/dashboard",  icon: "🏠", label: "Dashboard" },
-  { id: "/study",      icon: "🤖", image: "/study-engine-logo.png", label: "Study Engine (AI Tutor)" },
+  { id: "/study",      icon: "🤖", image: "/study-ingenia-logo.png", label: "Study Engine (AI Tutor)" },
   { id: "/community",  icon: "💬", label: "Community Hub (Discord)" },
   { id: "/resources",  icon: "📚", label: "Educational Resources" },
   { id: "/vl",         icon: "🔬", label: "Visual Simulations" },

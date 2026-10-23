@@ -18,6 +18,42 @@ const AppContext = createContext(null);
 
 const TODAY_DATE_STR = new Date().toDateString();
 
+/**
+ * Use a fresh local date label whenever study time is recorded. The previous
+ * implementation captured one date at module load, so a tab left open across
+ * midnight could keep adding yesterday's minutes to today's goal.
+ */
+function getTodayLabel() {
+  return new Date().toDateString();
+}
+
+/**
+ * Badge predicates live in one place so every activity path (timer, manual
+ * logging, and YouTube playback) unlocks the same persistent badge state.
+ */
+function applyBadgeUnlocks(state) {
+  const badges = { ...(state?.bdg || {}) };
+  const level = calculateLevel(state?.xp || 0);
+  BADGES.forEach(badge => {
+    try {
+      if (!badges[badge.id] && badge.test(state, level)) badges[badge.id] = true;
+    } catch {
+      // A malformed legacy progress record must not break the whole app.
+    }
+  });
+  return { ...state, bdg: badges };
+}
+
+/** Mark one calendar day as complete without duplicating it in history. */
+function markDailyGoalReached(state, today) {
+  if (state.dailyGoalReachedDate === today && state.dailyGoalDays?.[today]) return state;
+  return {
+    ...state,
+    dailyGoalReachedDate: today,
+    dailyGoalDays: { ...(state.dailyGoalDays || {}), [today]: true }
+  };
+}
+
 // Helper to extract clean path from window.location.hash
 function getHashPath() {
   const hash = window.location.hash || "";
@@ -173,10 +209,14 @@ export function AppProvider({ children }) {
   const [progress, setProgress] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("sp") || "null");
-      return Object.assign({
+      let merged = Object.assign({
         name: userProfile?.username || "",
         goal: 30,
         min: 0,
+        studySecondsToday: 0,
+        videoWatchDays: {},
+        dailyGoalReachedDate: "",
+        dailyGoalDays: {},
         streak: 1,
         best: {},
         weak: [],
@@ -203,12 +243,26 @@ export function AppProvider({ children }) {
         fc: flashcards,
         fcm: []
       }, stored || {});
+      // Reset only the current-day counters. Historical video-watch days and
+      // unlocked badges remain available for streaks and reward downloads.
+      if (merged.day !== getTodayLabel()) {
+        merged.day = getTodayLabel();
+        merged.min = 0;
+        merged.studySecondsToday = 0;
+        merged.dailyGoalReachedDate = "";
+      }
+      // Migrate an already-completed current-day goal into the new reward
+      // history so existing learners receive the first-goal badge on refresh.
+      if (merged.min >= (Number(merged.goal) || 30)) {
+        merged = markDailyGoalReached(merged, getTodayLabel());
+      }
+      return applyBadgeUnlocks(merged);
     } catch {
-      return {
-        name: userProfile?.username || "", goal: 30, min: 0, streak: 1, best: {}, weak: [], day: TODAY_DATE_STR,
+      return applyBadgeUnlocks({
+        name: userProfile?.username || "", goal: 30, min: 0, studySecondsToday: 0, videoWatchDays: {}, dailyGoalReachedDate: "", dailyGoalDays: {}, streak: 1, best: {}, weak: [], day: TODAY_DATE_STR,
         hit: "", ev: {}, packs: {}, notes: "", tf: 30, tb: 5, tl: 15, pomodoroSessions: 0, rn: 1, rm: 10, xp: 0,
         bdg: {}, fm: 0, qc: 0, tc: 0, pc: 0, pf: 0, dx: 0, dxd: "", fc: flashcards, fcm: []
-      };
+      });
     }
   });
 
@@ -278,10 +332,103 @@ export function AppProvider({ children }) {
 
   const checkDailyGoal = useCallback((minutes) => {
     const goal = progress?.goal || 30;
-    if (minutes >= goal) {
+    if (minutes < goal) return;
+    setProgress(prev => {
+      const today = getTodayLabel();
+      const base = prev.day === today
+        ? prev
+        : { ...prev, day: today, min: 0, studySecondsToday: 0, dailyGoalReachedDate: "" };
+      if (base.dailyGoalReachedDate === today) return base;
+      const next = applyBadgeUnlocks(markDailyGoalReached(base, today));
+      try { localStorage.setItem("sp", JSON.stringify(next)); } catch {}
       showToast("🎯 Daily study goal achieved! Awesome consistency!");
-    }
+      return next;
+    });
   }, [progress?.goal, showToast]);
+
+  /**
+   * Record real elapsed learning time in seconds. YouTube playback calls this
+   * while its player is in PLAYING state; the timer and manual dashboard log
+   * use the minute wrapper below. Keeping the source separate lets rewards
+   * count distinct video-watch days without changing the daily goal math.
+   */
+  const recordStudySeconds = useCallback((seconds, source = "study") => {
+    const increment = Math.min(3600, Math.max(0, Math.floor(Number(seconds) || 0)));
+    if (!increment) return;
+
+    setProgress(prev => {
+      const today = getTodayLabel();
+      const sameDay = prev.day === today;
+      const base = sameDay
+        ? prev
+        : { ...prev, day: today, min: 0, studySecondsToday: 0, dailyGoalReachedDate: "" };
+      // Legacy sessions only stored whole minutes, so use them as a safe
+      // baseline until the new second-accurate counter has caught up.
+      const currentSeconds = Math.max(
+        Number(base.studySecondsToday) || 0,
+        (Number(base.min) || 0) * 60
+      );
+      const nextSeconds = currentSeconds + increment;
+      const next = {
+        ...base,
+        day: today,
+        studySecondsToday: nextSeconds,
+        min: Math.floor(nextSeconds / 60)
+      };
+
+      if (source === "youtube") {
+        const watchDays = { ...(base.videoWatchDays || {}) };
+        watchDays[today] = (Number(watchDays[today]) || 0) + increment;
+        next.videoWatchDays = watchDays;
+      }
+
+      if (next.min >= (Number(next.goal) || 30) && next.dailyGoalReachedDate !== today) {
+        Object.assign(next, markDailyGoalReached(next, today));
+        showToast("🎯 Daily study goal achieved! Awesome consistency!");
+      }
+
+      const unlockedBefore = base.bdg || {};
+      const unlockedNext = applyBadgeUnlocks(next);
+      const newlyUnlocked = BADGES.filter(badge => !unlockedBefore[badge.id] && unlockedNext.bdg[badge.id]);
+      newlyUnlocked.forEach(badge => showToast(`🏅 Badge unlocked: ${badge.title}`));
+
+      try { localStorage.setItem("sp", JSON.stringify(unlockedNext)); } catch {}
+      return unlockedNext;
+    });
+  }, [showToast]);
+
+  /** Minute-friendly wrapper used by the dashboard and completed focus blocks. */
+  const recordStudyMinutes = useCallback((minutes, source = "study") => {
+    recordStudySeconds(Number(minutes) * 60, source);
+  }, [recordStudySeconds]);
+
+  /**
+   * Reset only today's live study counters. Historical streaks, video-watch
+   * dates, XP, and earned badges remain intact so a reset cannot erase the
+   * learner's long-term record. Clearing today's video entry lets the learner
+   * replay a video and count a fresh watch session toward today's goal.
+   */
+  const resetTodayStudyProgress = useCallback(() => {
+    setProgress(prev => {
+      const today = getTodayLabel();
+      const dailyGoalDays = { ...(prev.dailyGoalDays || {}) };
+      delete dailyGoalDays[today];
+      const videoWatchDays = { ...(prev.videoWatchDays || {}) };
+      delete videoWatchDays[today];
+      const next = {
+        ...prev,
+        day: today,
+        min: 0,
+        studySecondsToday: 0,
+        dailyGoalReachedDate: "",
+        dailyGoalDays,
+        videoWatchDays,
+      };
+      try { localStorage.setItem("sp", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    showToast("↺ Today's study timer and goal progress were reset. You can study again.");
+  }, [showToast]);
 
   // ── 8. Award XP System & Centralized Gamification Dispatcher ──
   const awardXP = useCallback((points, reason = "study activity") => {
@@ -413,7 +560,28 @@ export function AppProvider({ children }) {
 
   const saveProgress = useCallback(async (updater) => {
     setProgress(prev => {
-      const next = typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
+      const today = getTodayLabel();
+      const current = prev.day === today
+        ? prev
+        : { ...prev, day: today, min: 0, studySecondsToday: 0, dailyGoalReachedDate: "" };
+      let next = typeof updater === "function" ? updater(current) : { ...current, ...updater };
+      // Keep second-accurate and legacy minute fields coherent when older
+      // controls still write `min` directly.
+      if (next.min !== undefined) {
+        next.studySecondsToday = Math.max(
+          Number(next.studySecondsToday) || 0,
+          (Number(next.min) || 0) * 60
+        );
+      }
+      if (next.min >= (Number(next.goal) || 30) && next.dailyGoalReachedDate !== today) {
+        next = markDailyGoalReached(next, today);
+        showToast("🎯 Daily study goal achieved! Awesome consistency!");
+      }
+      const newlyUnlocked = BADGES.filter(badge => !(current.bdg || {})[badge.id]);
+      next = applyBadgeUnlocks(next);
+      newlyUnlocked
+        .filter(badge => next.bdg[badge.id])
+        .forEach(badge => showToast(`🏅 Badge unlocked: ${badge.title}`));
       if (next.weak && Array.isArray(next.weak)) {
         setWeakTopics(next.weak);
       }
@@ -425,7 +593,7 @@ export function AppProvider({ children }) {
       } catch {}
       return next;
     });
-  }, []);
+  }, [showToast]);
 
   const loginUser = useCallback(async ({ email, username, password, age, cohort }) => {
     const resolvedCohort = normalizeCohort(cohort || computeAgeCohort(age));
@@ -536,6 +704,9 @@ export function AppProvider({ children }) {
     currentXP,
     currentLevel,
     awardXP,
+    recordStudySeconds,
+    recordStudyMinutes,
+    resetTodayStudyProgress,
     loginUser,
     guestLogin,
     signOut,

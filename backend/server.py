@@ -146,6 +146,10 @@ class AG2VerifyResponse(BaseModel):
 # Study Plan Models
 class StudyPlanRequest(BaseModel):
     age_cohort: Optional[str] = Field(default="Teen", description="'Junior', 'Teen', or 'Senior'")
+    class_level: Optional[str] = Field(default="Class 10", description="School class/grade used to calibrate the plan")
+    exam_goal: Optional[str] = Field(default="General", description="Exam or learning goal such as JEE, NEET, or Boards")
+    topic: Optional[str] = Field(default="", description="Optional topic supplied by the learner")
+    goal_minutes: Optional[int] = Field(default=30, description="Target study minutes for the day")
     streak: Optional[int] = Field(default=1, description="Current daily study streak")
     weak_topics: Optional[List[str]] = Field(default=[], description="List of identified weak topics")
 
@@ -154,9 +158,14 @@ class StudyPlanItem(BaseModel):
     task: str
     topic: str
     pedagogy: str
+    # Route is intentionally restricted to first-party destinations. The UI
+    # uses it to launch the matching activity without opening arbitrary URLs.
+    route: str = "/study"
 
 class StudyPlanResponse(BaseModel):
     study_plan: List[StudyPlanItem]
+    source: str = "offline"
+    model_used: Optional[str] = None
 
 # ---------------------------------------------------------------------------
 # Prompt Construction with Strict Cohort Routing
@@ -306,74 +315,90 @@ def build_deterministic_ag2_response(query: str, age_cohort: str = "Teen") -> di
         }
     }
 
-def build_deterministic_study_plan(cohort: str, streak: int, weak_topics: List[str]) -> List[dict]:
+STUDY_PLAN_ROUTES = {
+    "video": "/resources?tab=videos",
+    "pyq": "/resources?tab=pyq",
+    "flashcard": "/study",
+    "notes": "/dashboard",
+    "tutor": "/study",
+}
+
+
+def _study_route_for_text(text: str) -> str:
+    """Map generated wording to a safe first-party study destination."""
+    value = (text or "").casefold()
+    if any(word in value for word in ("video", "lecture", "watch", "visual")):
+        return STUDY_PLAN_ROUTES["video"]
+    if any(word in value for word in ("pyq", "previous year", "past paper", "question bank")):
+        return STUDY_PLAN_ROUTES["pyq"]
+    if any(word in value for word in ("flashcard", "flash card", "recall deck", "cards")):
+        return STUDY_PLAN_ROUTES["flashcard"]
+    if any(word in value for word in ("note", "summary", "formula sheet", "journal")):
+        return STUDY_PLAN_ROUTES["notes"]
+    return STUDY_PLAN_ROUTES["tutor"]
+
+
+def normalize_study_plan_items(raw_items: Any, *, fallback: List[dict]) -> List[StudyPlanItem]:
+    """Validate model output and fill missing fields before it reaches the UI."""
+    items: List[StudyPlanItem] = []
+    if isinstance(raw_items, list):
+        for raw in raw_items[:5]:
+            if not isinstance(raw, dict):
+                continue
+            topic = str(raw.get("topic") or "Study skills").strip()[:120]
+            task = str(raw.get("task") or raw.get("activity") or "Review the concept and self-check.").strip()[:320]
+            time_label = str(raw.get("time") or raw.get("duration") or "20 mins").strip()[:40]
+            pedagogy = str(raw.get("pedagogy") or "Active Recall").strip()[:80]
+            requested_route = str(raw.get("route") or "").strip()
+            route = requested_route if requested_route in STUDY_PLAN_ROUTES.values() else _study_route_for_text(f"{topic} {task}")
+            if task and topic:
+                items.append(StudyPlanItem(time=time_label, task=task, topic=topic, pedagogy=pedagogy, route=route))
+    if items:
+        return items
+    return [StudyPlanItem(**item) for item in fallback]
+
+
+def build_deterministic_study_plan(
+    cohort: str,
+    streak: int,
+    weak_topics: List[str],
+    class_level: str = "Class 10",
+    exam_goal: str = "General",
+    topic: str = "",
+    goal_minutes: int = 30,
+) -> List[dict]:
+    """Offline plan that still reflects the learner's selected context."""
     c = cohort.capitalize() if cohort else "Teen"
-    w1 = weak_topics[0] if weak_topics and len(weak_topics) > 0 else "Physics First Principles"
-    w2 = weak_topics[1] if weak_topics and len(weak_topics) > 1 else "Algebraic Symmetry"
+    requested_topic = (topic or "").strip()
+    w1 = requested_topic or (weak_topics[0] if weak_topics else "Physics First Principles")
+    w2 = weak_topics[1] if len(weak_topics) > 1 else (f"{w1} practice" if requested_topic else "Algebraic Symmetry")
+    level = class_level or "Class 10"
+    goal = exam_goal or "General"
+    context = f"{level} {goal}".strip()
 
     if "Junior" in c:
-        return [
-            {
-                "time": "15 mins",
-                "task": f"Playful Science Quest: Explore 3D cards on {w1}",
-                "topic": w1,
-                "pedagogy": "Flipped Classroom"
-            },
-            {
-                "time": "20 mins",
-                "task": "Interactive Simulation: See how forces push and pull in real-time",
-                "topic": "Forces & Motion",
-                "pedagogy": "Active Recall"
-            },
-            {
-                "time": "10 mins",
-                "task": f"Fun Sticker Challenge: Ask the AI Tutor your muddiest question about {w2}",
-                "topic": w2,
-                "pedagogy": "The Muddiest Point"
-            }
+        items = [
+            {"time": "15 mins", "task": f"Watch a guided visual lesson on {w1} for {context}.", "topic": w1, "pedagogy": "Flipped Classroom", "route": STUDY_PLAN_ROUTES["video"]},
+            {"time": "20 mins", "task": f"Make and review 8 flashcards about {w1}; explain each answer aloud.", "topic": w1, "pedagogy": "Active Recall", "route": STUDY_PLAN_ROUTES["flashcard"]},
+            {"time": "10 mins", "task": f"Write a simple three-line summary and ask the tutor one question about {w2}.", "topic": w2, "pedagogy": "The Muddiest Point", "route": STUDY_PLAN_ROUTES["notes"]},
         ]
     elif "Senior" in c:
-        return [
-            {
-                "time": "30 mins",
-                "task": f"Advanced Theoretical Derivation: Solve invariant Lagrangian proof for {w1}",
-                "topic": w1,
-                "pedagogy": "The Protégé Effect"
-            },
-            {
-                "time": "25 mins",
-                "task": f"Rigorous Peer Audit: Review epistemically questioned counter-examples in {w2}",
-                "topic": w2,
-                "pedagogy": "Active Recall"
-            },
-            {
-                "time": "20 mins",
-                "task": "Deep Academic Discourse: Debate epistemic boundaries with AI Tutor",
-                "topic": "Noether Symmetries",
-                "pedagogy": "Think-Pair-Share"
-            }
+        items = [
+            {"time": "30 mins", "task": f"Study a rigorous lecture and derive the key result for {w1} ({context}).", "topic": w1, "pedagogy": "The Protégé Effect", "route": STUDY_PLAN_ROUTES["video"]},
+            {"time": "25 mins", "task": f"Solve and mark five previous-year questions on {w2} for {goal}.", "topic": w2, "pedagogy": "Active Recall", "route": STUDY_PLAN_ROUTES["pyq"]},
+            {"time": "20 mins", "task": f"Ask the tutor to audit your derivation and record the correction in notes.", "topic": w1, "pedagogy": "Think-Pair-Share", "route": STUDY_PLAN_ROUTES["tutor"]},
         ]
-    else:  # Teen
-        return [
-            {
-                "time": "20 mins",
-                "task": f"Active Recall Sprint: Test yourself on 10 flashcards covering {w1}",
-                "topic": w1,
-                "pedagogy": "Active Recall"
-            },
-            {
-                "time": "30 mins",
-                "task": f"PYQ High-Yield Drill: Solve 5 Previous Year Questions on {w2}",
-                "topic": w2,
-                "pedagogy": "Think-Pair-Share"
-            },
-            {
-                "time": "15 mins",
-                "task": f"Muddiest Point Drill: Isolate and eliminate your single biggest doubt with AI Tutor",
-                "topic": "Exam Revision",
-                "pedagogy": "The Muddiest Point"
-            }
+    else:
+        items = [
+            {"time": "20 mins", "task": f"Build a focused recall deck covering {w1} for {context}.", "topic": w1, "pedagogy": "Active Recall", "route": STUDY_PLAN_ROUTES["flashcard"]},
+            {"time": "30 mins", "task": f"Solve five high-yield previous-year questions on {w2} for {goal}.", "topic": w2, "pedagogy": "Think-Pair-Share", "route": STUDY_PLAN_ROUTES["pyq"]},
+            {"time": "15 mins", "task": f"Watch a concise revision lecture, then write the two ideas you still need to practise.", "topic": w1, "pedagogy": "The Muddiest Point", "route": STUDY_PLAN_ROUTES["video"]},
         ]
+    # Keep the requested goal visible in the fallback without producing an
+    # invalid duration when a malformed client value is sent.
+    if goal_minutes and goal_minutes > 0:
+        items[0]["task"] += f" Daily target: {max(10, min(720, int(goal_minutes)))} minutes."
+    return items
 
 # ---------------------------------------------------------------------------
 # API Endpoints
@@ -747,36 +772,70 @@ Requirements:
 async def create_study_plan(req: StudyPlanRequest) -> StudyPlanResponse:
     """
     Dynamic Daily Study Plan generator.
-    Uses Gemini Flash to generate a concise, 3-item personalized study plan.
+    Groq is the primary provider. Gemini and a deterministic plan remain
+    available as graceful fallbacks when the selected provider is unavailable.
     """
-    active = get_client()
     cohort = req.age_cohort or "Teen"
-    streak = req.streak or 1
+    class_level = req.class_level or "Class 10"
+    exam_goal = req.exam_goal or "General"
+    requested_topic = (req.topic or "").strip()
+    streak = max(1, req.streak or 1)
     weak = req.weak_topics or []
+    goal_minutes = max(10, min(720, req.goal_minutes or 30))
+    fallback_items = build_deterministic_study_plan(
+        cohort,
+        streak,
+        weak,
+        class_level=class_level,
+        exam_goal=exam_goal,
+        topic=requested_topic,
+        goal_minutes=goal_minutes,
+    )
 
-    prompt = f"""You are the Anti Gravity 2.0 Curriculum Architect.
-Generate a high-impact, concise 3-item daily study plan for a student.
+    # Groq is intentionally requested with the 20B model first because it is
+    # available on the standard key and has a lower TPM cost than 120B.
+    if GROQ_API_KEY:
+        preferred_model = os.getenv("GROQ_STUDY_PLAN_MODEL", "openai/gpt-oss-20b").strip()
+        model = preferred_model if preferred_model in GROQ_TUTOR_MODELS else GROQ_TUTOR_MODELS[0]
+        prompt = f"""Create a practical one-day study plan for a learner.
+Learner context:
+- Age cohort: {cohort}
+- School class: {class_level}
+- Exam or goal: {exam_goal}
+- Requested topic: {requested_topic or 'Use the learner weak topics'}
+- Weak topics: {', '.join(weak) if weak else 'None recorded'}
+- Current streak: {streak} days
+- Daily target: {goal_minutes} minutes
 
-STUDENT PROFILE:
-- Age Cohort: {cohort}
-- Current Streak: {streak} days
-- Identified Weak Topics: {', '.join(weak) if weak else 'General Foundation'}
-
-RULES:
-1. Provide exactly 3 actionable study tasks in JSON.
-2. Tailor time and vocabulary to the {cohort} cohort.
-3. Use pedagogical tags: 'Flipped Classroom', 'Active Recall', 'The Protégé Effect', 'The Muddiest Point', or 'Think-Pair-Share'.
-
-SCHEMA:
-{{
-  "study_plan": [
-    {{"time": "20 mins", "task": "...", "topic": "...", "pedagogy": "..."}},
-    {{"time": "30 mins", "task": "...", "topic": "...", "pedagogy": "..."}},
-    {{"time": "15 mins", "task": "...", "topic": "...", "pedagogy": "..."}}
-  ]
-}}
+Return only valid JSON with exactly 3 items under study_plan. Every item must
+have: time (for example '20 mins'), task, topic, pedagogy, and route. The route
+must be exactly one of '/resources?tab=videos', '/resources?tab=pyq', '/study',
+or '/dashboard'. Use videos for a lecture, pyq for previous-year questions,
+/study for flashcards or tutor practice, and /dashboard for notes. Match the
+class and exam goal. Do not include markdown or commentary.
 """
+        messages = [
+            {"role": "system", "content": "You are a careful curriculum planner. Return only valid JSON."},
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            parsed = await _groq_json_with_retry(model, messages, 900, attempts=2)
+            if isinstance(parsed, dict):
+                items = normalize_study_plan_items(parsed.get("study_plan"), fallback=fallback_items)
+                if items:
+                    return StudyPlanResponse(study_plan=items, source="groq", model_used=model)
+            else:
+                print("[Study Plan Groq Notice] Structured response was not a JSON object")
+        except HTTPException as exc:
+            # Provider errors should not erase a usable plan. Keep the detail
+            # out of the client response because it may contain provider data.
+            print(f"[Study Plan Groq Notice] {exc.detail}")
+
+    # Gemini is kept as a compatibility fallback for deployments that still
+    # configure only GEMINI_API_KEY.
+    active = get_client()
     if active is not None:
+        prompt = f"""Generate a concise 3-item study plan as JSON for {cohort}, {class_level}, goal {exam_goal}, topic {requested_topic or 'weak topics'}, and a {goal_minutes}-minute target. Include each item's time, task, topic, pedagogy, and route. Routes must be one of '/resources?tab=videos', '/resources?tab=pyq', '/study', '/dashboard'."""
         try:
             config = types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -790,7 +849,8 @@ SCHEMA:
             if resp and resp.text:
                 parsed = extract_json_clean(resp.text)
                 if "study_plan" in parsed and isinstance(parsed["study_plan"], list):
-                    return StudyPlanResponse(**parsed)
+                        items = normalize_study_plan_items(parsed["study_plan"], fallback=fallback_items)
+                        return StudyPlanResponse(study_plan=items, source="gemini", model_used="gemini-1.5-flash")
         except Exception as exc:
             try:
                 resp2 = active.models.generate_content(
@@ -801,22 +861,34 @@ SCHEMA:
                 if resp2 and resp2.text:
                     parsed2 = extract_json_clean(resp2.text)
                     if "study_plan" in parsed2:
-                        return StudyPlanResponse(**parsed2)
+                        items = normalize_study_plan_items(parsed2["study_plan"], fallback=fallback_items)
+                        return StudyPlanResponse(study_plan=items, source="gemini", model_used="gemini-3.8-flash")
             except Exception:
                 print(f"[Study Plan GenAI Notice] {exc} — fallback to deterministic plan")
 
-    items = build_deterministic_study_plan(cohort, streak, weak)
-    return StudyPlanResponse(study_plan=items)
+    return StudyPlanResponse(study_plan=normalize_study_plan_items([], fallback=fallback_items), source="offline")
 
 @app.get("/api/study-plan", response_model=StudyPlanResponse)
 async def get_study_plan(
     cohort: str = Query(default="Teen"),
+    class_level: str = Query(default="Class 10"),
+    exam_goal: str = Query(default="General"),
+    topic: str = Query(default=""),
+    goal_minutes: int = Query(default=30),
     streak: int = Query(default=1),
     weak: str = Query(default="")
 ) -> StudyPlanResponse:
     """GET endpoint for easy frontend fetching."""
     weak_list = [w.strip() for w in weak.split(",") if w.strip()] if weak else []
-    req = StudyPlanRequest(age_cohort=cohort, streak=streak, weak_topics=weak_list)
+    req = StudyPlanRequest(
+        age_cohort=cohort,
+        class_level=class_level,
+        exam_goal=exam_goal,
+        topic=topic,
+        goal_minutes=goal_minutes,
+        streak=streak,
+        weak_topics=weak_list,
+    )
     return await create_study_plan(req)
 
 if __name__ == "__main__":

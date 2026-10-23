@@ -12,10 +12,23 @@ import AITutorView from "./AITutorView";
 import FlashcardsView from "./FlashcardsView";
 import StudyTimerView from "./StudyTimerView";
 import { useApp } from "../context/AppContext";
+import TutorLogo from "../components/TutorLogo";
 
 export default function StudyView() {
   const { progress } = useApp();
-  const [subTab, setSubTab] = useState("tutor"); // 'tutor' | 'flashcards' | 'timer'
+  const readRequestedTab = () => {
+    const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    return params.get("tab") === "flashcards" || params.get("tab") === "timer" ? params.get("tab") : "tutor";
+  };
+  const [subTab, setSubTab] = useState(readRequestedTab); // 'tutor' | 'flashcards' | 'timer'
+
+  // A dashboard activity link can change the query while this view is open.
+  // Keep the segmented controller synchronized with that in-app navigation.
+  React.useEffect(() => {
+    const syncTab = () => setSubTab(readRequestedTab());
+    window.addEventListener("hashchange", syncTab);
+    return () => window.removeEventListener("hashchange", syncTab);
+  }, []);
 
   return (
     <div className="pg">
@@ -38,7 +51,7 @@ export default function StudyView() {
             onClick={() => setSubTab("tutor")}
             style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
-            🤖 AI Epistemic Tutor
+            <TutorLogo size={22} style={{ borderRadius: "6px" }} /> AI Epistemic Tutor
           </button>
           <button
             className={subTab === "flashcards" ? "" : "alt"}

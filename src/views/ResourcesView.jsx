@@ -6,12 +6,19 @@
  * 2. 10-Year Previous Year Question (PYQ) Archive
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import VideoResourceExplorer from "../components/VideoResourceExplorer";
 import PYQView from "./PYQView";
 
 export default function ResourcesView() {
-  const [activeSubTab, setActiveSubTab] = useState(() => new URLSearchParams(window.location.hash.split("?")[1] || "").get("tab") === "pyq" ? "pyq" : "videos"); // 'videos' | 'pyq'
+  const readResourceTab = () => new URLSearchParams(window.location.hash.split("?")[1] || "").get("tab") === "pyq" ? "pyq" : "videos";
+  const [activeSubTab, setActiveSubTab] = useState(readResourceTab); // 'videos' | 'pyq'
+
+  useEffect(() => {
+    const syncResourceTab = () => setActiveSubTab(readResourceTab());
+    window.addEventListener("hashchange", syncResourceTab);
+    return () => window.removeEventListener("hashchange", syncResourceTab);
+  }, []);
 
   return (
     <div className="pg">

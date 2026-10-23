@@ -32,7 +32,7 @@ const AMBIENT_SOUND_BUTTONS = [
 ];
 
 export default function StudyTimerView({ embedded = false }) {
-  const { progress, saveProgress, checkDailyGoal, awardXP, setTimerOverlay, showToast } = useApp();
+  const { progress, saveProgress, recordStudyMinutes, resetTodayStudyProgress, checkDailyGoal, awardXP, setTimerOverlay, showToast } = useApp();
 
   const [timerMode, setTimerMode] = useState("f"); // 'f' = focus, 'b' = short break, 'l' = long break
   const [isRunning, setIsRunning] = useState(false);
@@ -172,9 +172,15 @@ export default function StudyTimerView({ embedded = false }) {
 
     if (wasFocus) {
       const addedMinutes = focusDuration;
-      const newTotal = (progress?.min || 0) + addedMinutes;
-      if (checkDailyGoal) checkDailyGoal(newTotal);
-      saveProgress({ min: newTotal, fm: (progress?.fm || 0) + addedMinutes });
+      if (recordStudyMinutes) {
+        recordStudyMinutes(addedMinutes, "pomodoro");
+      } else {
+        // Compatibility fallback for an older context bundle.
+        const newTotal = (progress?.min || 0) + addedMinutes;
+        if (checkDailyGoal) checkDailyGoal(newTotal);
+        saveProgress({ min: newTotal });
+      }
+      saveProgress({ fm: (progress?.fm || 0) + addedMinutes });
       if (awardXP) awardXP(addedMinutes, "focus session");
     }
 
@@ -214,6 +220,11 @@ export default function StudyTimerView({ embedded = false }) {
   const resetTimer = () => {
     setIsRunning(false);
     setSecondsRemaining(targetDurationSeconds);
+  };
+
+  const resetTodayProgress = () => {
+    resetTimer();
+    if (resetTodayStudyProgress) resetTodayStudyProgress();
   };
 
   const skipTimer = () => {
@@ -322,6 +333,11 @@ export default function StudyTimerView({ embedded = false }) {
         <button className="alt" onClick={resetTimer}>↺ Reset</button>
         <button className="alt" onClick={skipTimer}>⏭ Skip</button>
       </div>
+      <div className="row" style={{ justifyContent: "center", marginTop: "8px" }}>
+        <button className="alt" onClick={resetTodayProgress} style={{ color: "#fca5a5", borderColor: "rgba(248,113,113,0.4)" }}>
+          ↺ Reset today&apos;s goal progress
+        </button>
+      </div>
 
       <div className="mu" style={{ textAlign: "center", fontSize: "12px", marginTop: "10px" }}>
         {timerMode === "l" ? "✅ Four focus sessions complete · take a longer recovery break" : `Cycle progress: ${cycleProgress}/4 focus sessions`}
@@ -403,12 +419,27 @@ export default function StudyTimerView({ embedded = false }) {
           <input
             type="range"
             min="10"
-            max="300"
+            max="720"
             step="5"
             value={progress?.goal || 30}
             onChange={e => saveProgress({ goal: +e.target.value })}
             style={{ width: "100%", accentColor: "#22d3ee" }}
           />
+          <div className="row" style={{ justifyContent: "flex-end", marginTop: "6px", gap: "6px" }}>
+            <label className="mu" style={{ fontSize: "12px" }}>
+              Exact minutes:
+              <input
+                aria-label="Exact daily goal in minutes"
+                type="number"
+                min="10"
+                max="720"
+                step="5"
+                value={progress?.goal || 30}
+                onChange={e => saveProgress({ goal: Math.max(10, Math.min(720, Number(e.target.value) || 10)) })}
+                style={{ width: "74px", marginLeft: "6px", padding: "4px 6px" }}
+              />
+            </label>
+          </div>
 
           <div className="row" style={{ justifyContent: "space-between", marginTop: "12px" }}>
             <span className="mu">🔔 Hydration alert every</span>
