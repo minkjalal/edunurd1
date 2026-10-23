@@ -163,21 +163,35 @@ export default function AITutorView() {
   const logEndRef = useRef(null);
   const expressionTimerRef = useRef(null);
 
-  // Check backend health on mount
+  // Keep the connection indicator current. The API can be restarted after the
+  // page has loaded, so a one-time check would leave the UI stuck as offline.
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/health`, { method: "GET" })
-      .then(res => res.json())
-      .then(data => {
+    let cancelled = false;
+
+    const checkBackendHealth = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/health`, { method: "GET" });
+        if (!res.ok) throw new Error(`FastAPI returned ${res.status}.`);
+        const data = await res.json();
+        if (cancelled) return;
+
         setBackendOnline(data.status === "ok" && data.groq_active === true);
         if (Array.isArray(data.groq_tutor_models) && data.groq_tutor_models.length) {
           setSelectedGroqModel(current => data.groq_tutor_models.includes(current)
             ? current
             : data.groq_tutor_models[0]);
         }
-      })
-      .catch(() => {
-        setBackendOnline(false);
-      });
+      } catch {
+        if (!cancelled) setBackendOnline(false);
+      }
+    };
+
+    checkBackendHealth();
+    const retryTimer = window.setInterval(checkBackendHealth, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(retryTimer);
+    };
   }, []);
 
   // Auto-scroll chat log
@@ -234,14 +248,16 @@ export default function AITutorView() {
     } catch (err) {
       console.warn("Tutor request failed:", err);
       const message = err?.message || "The tutor request failed. Check that FastAPI and Groq are available.";
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: `I couldn't generate an audited answer: ${message}\n\nSwitch to Offline mode for a local solution framework, or retry when FastAPI and Groq are available.`,
-        audit: { status: "Unavailable", confidence: 0, explanation: "No model answer was returned, so no accuracy check was performed.", sources: [] },
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      }]);
-      setBusy(false);
-      setRobotExpression("confused");
+      // A network/model outage should still produce a useful, honest result.
+      // Reuse the normal verdict renderer so the response gets the same
+      // answer, audit, and accessibility layout as an online response.
+      const fallback = generateOfflineTutorResponse(query);
+      fallback.model_used = "Offline fallback";
+      fallback.audit_explanation = `FastAPI/Groq was unavailable (${message}). A local solution framework is shown; retry after the service reconnects.`;
+      fallback.final_answer = `**Local fallback**\n\nThe online auditor is unavailable right now, so here is a checkable framework for your question.\n\n${fallback.final_answer}`;
+      setBackendOnline(false);
+      processTutorVerdict(fallback, query);
+      showToast("FastAPI/Groq unavailable; local solution framework shown.");
     }
   };
 
@@ -376,7 +392,7 @@ export default function AITutorView() {
             ? "Checking FastAPI :8000…"
             : backendOnline
               ? "🟢 FastAPI :8000 · Groq configured"
-              : "🟠 FastAPI/Groq unavailable"}
+              : "🟠 FastAPI/Groq unavailable · offline fallback ready"}
         </span>
       </div>
 
