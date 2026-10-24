@@ -17,6 +17,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import RobotEyes from "../components/RobotEyes";
+import { generateOfflineTutorResponse } from "../utils/offlineTutor";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -390,7 +391,9 @@ export default function AITutorView() {
             border: `1px solid ${backendOnline ? "rgba(34, 197, 94, 0.3)" : "rgba(245, 158, 11, 0.3)"}`
           }}
         >
-          {backendOnline === null
+          {tutorMode === "offline"
+            ? "🟢 Offline mode · local tutor ready"
+            : backendOnline === null
             ? "Checking FastAPI :8000…"
             : backendOnline
               ? "🟢 FastAPI :8000 · Groq configured"
@@ -636,22 +639,4 @@ export default function AITutorView() {
       </div>
     </div>
   );
-}
-
-// Offline mode provides an honest reasoning scaffold without inventing an answer.
-function generateOfflineTutorResponse(query) {
-  return {
-    status: "Questioned",
-    confidence_score: 0,
-    final_answer: `**Offline mode**\n\nI received: “${query}”\n\nI don’t have a language model or verified reference source available in Offline mode, so I won’t guess at a factual answer. Use this checkable approach:\n\n1. Identify exactly what the question asks you to find or explain.\n2. List the given information and any assumptions.\n3. Choose a rule, definition, or formula that applies to those givens.\n4. Work through one step at a time, showing units or evidence.\n5. Substitute the result back into the question and check that it answers what was asked.\n\nChoose Dual-Agent · Senior Mode to request a model-generated answer and second-pass consistency check.`,
-    audit_explanation: "No external model or sources were used in Offline mode; factual correctness could not be assessed.",
-    contradictions: [],
-    verified_sources: [],
-    flashcard_export: [],
-    gamification_triggers: {
-      student_accuracy_score: 0,
-      xp_awarded: 0,
-      prompt_community_share: false
-    }
-  };
 }

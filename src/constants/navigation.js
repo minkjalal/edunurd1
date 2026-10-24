@@ -17,6 +17,7 @@ export const MENU_ITEMS = [
   { id: "/study",      icon: "🤖", image: "/study-ingenia-logo.png", label: "Study Engine (AI Tutor)" },
   { id: "/community",  icon: "💬", label: "Community Hub (Discord)" },
   { id: "/resources",  icon: "📚", label: "Educational Resources" },
+  { id: "/offline",    icon: "🧠", label: "Offline Study Mode" },
   { id: "/vl",         icon: "🔬", label: "Visual Simulations" },
   { id: "/rw",         icon: "🎖️", label: "Rewards & Streaks" },
   { id: "/comp",       icon: "🏆", label: "Mock Competitions" }

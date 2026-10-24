@@ -32,6 +32,8 @@ import RewardsView from "./views/RewardsView";
 import CompetitionView from "./views/CompetitionView";
 import CalendarView from "./views/CalendarView";
 import QuizView from "./views/QuizView";
+import OfflineView from "./views/OfflineView";
+import NotesView from "./views/NotesView";
 
 function MainContentRouter() {
   const { mode, currentRoute, activeQuiz, isHydrated } = useApp();
@@ -69,6 +71,12 @@ function MainContentRouter() {
 
     case "/resources":
       return <ResourcesView />;
+
+    case "/offline":
+      return <OfflineView />;
+
+    case "/notes":
+      return <NotesView />;
 
     case "/vl":
     case "/visual-learning":

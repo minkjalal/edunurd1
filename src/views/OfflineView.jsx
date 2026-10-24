@@ -9,11 +9,14 @@
  * - Quick jump to the rich notes editor
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { generateOfflineTutorResponse } from "../utils/offlineTutor";
 
 export default function OfflineView() {
   const { progress, saveProgress, startQuiz, navigateTo } = useApp();
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState(null);
 
   const packs = progress.packs || {};
   const packKeys = Object.keys(packs);
@@ -24,9 +27,43 @@ export default function OfflineView() {
     saveProgress({ packs: updated });
   };
 
+  const handleAskOffline = event => {
+    event.preventDefault();
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    setAnswer(generateOfflineTutorResponse(trimmed));
+  };
+
   return (
     <div className="pg">
       <h1>Offline</h1>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>🧠 Offline Tutor</h2>
+        <p className="mu">
+          This tutor runs entirely in your browser. It does not call FastAPI, Groq, Gemini, or any external service.
+        </p>
+        <form onSubmit={handleAskOffline} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <input
+            value={question}
+            onChange={event => setQuestion(event.target.value)}
+            placeholder="Ask about Newton's laws, speed, photosynthesis…"
+            aria-label="Offline tutor question"
+            maxLength={4096}
+            style={{ flex: 1, minWidth: "220px" }}
+          />
+          <button type="submit">Ask locally</button>
+          <button type="button" className="alt" onClick={() => { setQuestion(""); setAnswer(null); }}>
+            Clear
+          </button>
+        </form>
+        {answer && (
+          <div className="card" role="status" style={{ marginTop: "12px", whiteSpace: "pre-wrap" }}>
+            <b>{answer.model_used}</b>
+            <div style={{ marginTop: "8px", lineHeight: 1.55 }}>{answer.final_answer}</div>
+            <div className="mu" style={{ marginTop: "10px" }}>{answer.audit_explanation}</div>
+          </div>
+        )}
+      </div>
       <div className="card">
         <b>Videos cannot be stored directly inside this browser</b>
         <p className="mu">
