@@ -1,3 +1,5 @@
+// Connection: src/views/VideosView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders focused video learning activities and playback destinations.
 /**
  * EduNerd - Video Lectures & Education Apps View
  * ==============================================

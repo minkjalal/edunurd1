@@ -1,3 +1,5 @@
+// Connection: src/components/TutorLogo.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Displays the shared Study Ingenia tutor logo across launch surfaces.
 /**
  * Shared Study Ingenia tutor mark used by the tutor launch surfaces.
  * Keeping this in one component prevents the dashboard, study tabs, and

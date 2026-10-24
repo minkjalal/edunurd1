@@ -1,3 +1,5 @@
+// Connection: start-all.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Starts the main web server and community chat sidecar as coordinated child processes.
 /**
  * =============================================================================
  * EduNerd - Unified Local Hosting Runner (start-all.js)

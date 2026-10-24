@@ -1,3 +1,5 @@
+// Connection: src/App.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Composes global providers and selects the active hash-based application view.
 /**
  * Anti Gravity 2.0 - Root Application Shell & Deterministic Router (App.jsx)
  * =========================================================================

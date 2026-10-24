@@ -1,3 +1,5 @@
+// Connection: src/views/CommunityView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders cohort-aware community channels, moderation, audio, and local history.
 /**
  * Anti Gravity 2.0 - Discord-Style Community Hub (CommunityView.jsx)
  * =================================================================

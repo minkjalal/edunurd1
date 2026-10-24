@@ -1,3 +1,5 @@
+// Connection: src/utils/helpers.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Provides shared date, route, level, avatar, and formatting helpers.
 /**
  * EduNerd - Helper Functions & State Utilities
  * ============================================

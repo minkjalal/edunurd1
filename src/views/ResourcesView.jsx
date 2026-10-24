@@ -1,3 +1,5 @@
+// Connection: src/views/ResourcesView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Composes videos, PYQs, and resource tabs under one learning destination.
 /**
  * Anti Gravity 2.0 - Resources Hub (ResourcesView.jsx)
  * =====================================================

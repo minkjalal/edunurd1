@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/CommunityPeopleChatNav.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Provides navigation between community people-chat tabs.
 /**
  * People & Chat - Community Header Navigation Tab (CommunityPeopleChatNav.jsx)
  * ============================================================================

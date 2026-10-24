@@ -1,3 +1,5 @@
+// Connection: src/components/TimerModal.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Shows the compact timer overlay and connects it to shared timer actions.
 /**
  * EduNerd - Timer Completion Modal
  * ================================

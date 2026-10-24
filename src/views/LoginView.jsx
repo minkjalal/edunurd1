@@ -1,3 +1,5 @@
+// Connection: src/views/LoginView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Collects learner identity and cohort information before entering the app.
 /**
  * Anti Gravity 2.0 - Age-Gated Authentication & Onboarding View (LoginView.jsx)
  * ==============================================================================

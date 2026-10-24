@@ -1,3 +1,5 @@
+// Connection: src/utils/sound.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Creates short browser audio cues without requiring an external audio file.
 /**
  * EduNerd - Web Audio API Chime Utility
  * =====================================

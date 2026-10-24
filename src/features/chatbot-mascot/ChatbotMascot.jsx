@@ -1,3 +1,5 @@
+// Connection: src/features/chatbot-mascot/ChatbotMascot.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders the optional animated mascot and its conversational controls.
 /**
  * EduNerd - Chatbot Mascot Component (ChatbotMascot.jsx)
  * =======================================================

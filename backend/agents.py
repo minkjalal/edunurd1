@@ -14,6 +14,9 @@ Agent 2 — Global Epistemic Auditor ("Verify Globally")
   - Returns a strict JSON verdict schema.
 """
 
+# Connection: backend/agents.py is part of the runtime flow documented in CODEBASE_GUIDE.md.
+# Function: Implements the retrieval-aware drafting and second-agent epistemic audit helpers.
+
 from __future__ import annotations
 
 import json

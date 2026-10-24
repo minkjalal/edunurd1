@@ -1,3 +1,5 @@
+// Connection: src/utils/communityModeration.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Detects abusive language, sanitizes content, and enforces cohort message policy.
 /**
  * Community Hub moderation utilities.
  *

@@ -1,3 +1,5 @@
+// Connection: src/features/chatbot-mascot/mascotRunner.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Starts and stops mascot observation in the application lifecycle.
 /**
  * Chatbot Mascot Outside-In Mount Runner (mascotRunner.js)
  * ========================================================

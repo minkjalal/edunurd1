@@ -1,3 +1,5 @@
+// Connection: src/constants/exams.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines class, subject, exam, and previous-year question presets.
 /**
  * EduNerd - Exam Banks & Directory
  * =================================

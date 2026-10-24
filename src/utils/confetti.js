@@ -1,3 +1,5 @@
+// Connection: src/utils/confetti.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Provides the celebration animation used by achievement actions.
 /**
  * EduNerd - Confetti Animation Utility
  * =====================================

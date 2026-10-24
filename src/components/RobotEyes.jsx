@@ -1,3 +1,5 @@
+// Connection: src/components/RobotEyes.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Animates the tutor robot expression in response to tutor state.
 /**
  * =============================================================================
  * EduNerd - Reactive Robot Eyes Animated Component (RobotEyes.jsx)

@@ -1,3 +1,5 @@
+// Connection: src/components/ToastContainer.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Displays transient status and success messages from AppContext.
 /**
  * EduNerd - Toast Notification Container
  * =======================================

@@ -1,3 +1,5 @@
+// Connection: src/components/VideoResourceExplorer.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Lists safe YouTube learning resources and tracks playback progress.
 /**
  * Anti Gravity 2.0 - Verified YouTube Educational Video Resource Explorer
  * =======================================================================

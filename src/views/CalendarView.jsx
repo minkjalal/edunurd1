@@ -1,3 +1,5 @@
+// Connection: src/views/CalendarView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders the learner study calendar and scheduled activity state.
 /**
  * EduNerd - Calendar & Schedule View
  * ==================================

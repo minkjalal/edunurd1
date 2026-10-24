@@ -1,3 +1,5 @@
+// Connection: src/views/LibraryView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders saved learning materials and library navigation.
 /**
  * =============================================================================
  * EduNerd - Library View (LibraryView.jsx)

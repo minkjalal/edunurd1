@@ -1,3 +1,5 @@
+// Connection: src/constants/platforms.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines supported learning platforms and community categories.
 /**
  * EduNerd - External Platform Integrations & Learning Resources
  * ==============================================================

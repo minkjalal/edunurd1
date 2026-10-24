@@ -1,3 +1,5 @@
+// Connection: public/ag-discord-widget.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Mounts the optional Discord-style community widget and its browser interactions.
 /**
  * =============================================================================
  * EduNerd - "Discord-like" Community Real-Time Chat Widget (ag-discord-widget.js)

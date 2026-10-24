@@ -1,3 +1,5 @@
+// Connection: src/views/AITutorView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Sends tutor questions to FastAPI/Groq, renders audits, and handles offline fallback.
 /**
  * Anti Gravity 2.0 - Epistemic AI Tutor View
  * ===========================================

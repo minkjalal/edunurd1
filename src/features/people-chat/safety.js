@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/safety.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Applies safety checks and reporting rules to direct messages.
 /**
  * People & Chat - Safety & Privacy Guard Utilities
  * ==================================================

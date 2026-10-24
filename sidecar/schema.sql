@@ -1,3 +1,5 @@
+-- Connection: sidecar/schema.sql documents the data contract used by the runtime flow in CODEBASE_GUIDE.md.
+-- Function: Documents the relational shape for sidecar channels, messages, and presence data.
 -- =============================================================================
 -- EduNerd / Community Zone - Additive Chat Database Schema
 -- =============================================================================

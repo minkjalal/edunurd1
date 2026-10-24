@@ -1,3 +1,5 @@
+// Connection: src/views/NotesView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Provides the auto-saved study notes and scratchpad interface.
 /**
  * EduNerd - Rich Notes Editor & Export View
  * =========================================

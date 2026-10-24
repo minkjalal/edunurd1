@@ -1,3 +1,5 @@
+// Connection: src/views/DashboardView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders progress metrics, Groq study-plan generation, notes, and activity links.
 /**
  * Anti Gravity 2.0 - Unified High-Density Cockpit (DashboardView.jsx)
  * ===================================================================

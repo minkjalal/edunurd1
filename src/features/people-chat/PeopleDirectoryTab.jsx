@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/PeopleDirectoryTab.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Lists discoverable learners and starts direct conversations.
 /**
  * People & Chat - People Directory Tab (PeopleDirectoryTab.jsx)
  * ==============================================================

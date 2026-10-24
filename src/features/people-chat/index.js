@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/index.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Exports the people-chat feature components and transport helpers.
 /**
  * People & Chat Feature Module Entry Point
  */

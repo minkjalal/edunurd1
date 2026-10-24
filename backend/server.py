@@ -8,6 +8,9 @@ Implements:
 4. Strict Zero-Tolerance JSON schema validation.
 """
 
+# Connection: backend/server.py is part of the runtime flow documented in CODEBASE_GUIDE.md.
+# Function: Implements FastAPI schemas and endpoints for Groq tutoring, audits, plans, and flashcards.
+
 from __future__ import annotations
 
 import os

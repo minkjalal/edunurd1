@@ -1,3 +1,5 @@
+// Connection: src/features/chatbot-mascot/mascotObserver.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Observes application activity and maps events to mascot reactions.
 /**
  * EduNerd - Chatbot Mascot Observer Hook (mascotObserver.js)
  * ==========================================================

@@ -1,3 +1,5 @@
+// Connection: src/views/StudyView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Composes tutor, flashcard, and Pomodoro tabs inside the study route.
 /**
  * Anti Gravity 2.0 - Unified Study Hub (StudyView.jsx)
  * ======================================================

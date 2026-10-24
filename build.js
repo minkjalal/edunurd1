@@ -1,3 +1,5 @@
+// Connection: build.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Bundles the React entry point and source styles into the browser bundle with esbuild.
 /**
  * EduNerd - Production Build Script
  * =================================

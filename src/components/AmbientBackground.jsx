@@ -1,3 +1,5 @@
+// Connection: src/components/AmbientBackground.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders the animated network background shared by application views.
 /**
  * EduNerd - Ambient Particle Background (React Canvas)
  * ====================================================

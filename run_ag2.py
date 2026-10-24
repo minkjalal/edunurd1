@@ -11,6 +11,9 @@ Includes:
 - Automatic frontend bundle verification
 """
 
+# Connection: run_ag2.py is part of the runtime flow documented in CODEBASE_GUIDE.md.
+# Function: Starts the FastAPI backend and EduNerd frontend together and shuts them down as one unit.
+
 from __future__ import annotations
 
 import os

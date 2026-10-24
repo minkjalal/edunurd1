@@ -7,6 +7,9 @@ Implements:
 4. Epistemic Dual-Agent Pipeline Execution with Fallbacks
 """
 
+# Connection: backend/tutor_engine.py is part of the runtime flow documented in CODEBASE_GUIDE.md.
+# Function: Routes tutor requests through pedagogical prompts and epistemic fallbacks.
+
 from __future__ import annotations
 
 import json

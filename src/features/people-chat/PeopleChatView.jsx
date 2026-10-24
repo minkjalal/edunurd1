@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/PeopleChatView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Composes the directory, profile, navigation, and direct-chat panels.
 /**
  * People & Chat - Main Feature View (PeopleChatView.jsx)
  * =======================================================

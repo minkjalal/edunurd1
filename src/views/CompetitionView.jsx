@@ -1,3 +1,5 @@
+// Connection: src/views/CompetitionView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders mock competition setup, questions, scoring, and completion state.
 /**
  * EduNerd - Competition Zone View
  * ================================

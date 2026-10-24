@@ -1,3 +1,5 @@
+// Connection: src/context/AppContext.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Owns shared session, progress, flashcard, timer, reward, toast, and navigation state.
 /**
  * Anti Gravity 2.0 - Central Application State (AppContext.jsx)
  * ==============================================================

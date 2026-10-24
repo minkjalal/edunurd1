@@ -1,3 +1,5 @@
+// Connection: server.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Runs the Express app, authentication, document storage, generic AI proxy, and offline tutor fallback.
 /**
  * ============================================================
  * EduNerd – Backend API Server

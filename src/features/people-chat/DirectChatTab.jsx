@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/DirectChatTab.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders one-to-one conversation history and message controls.
 /**
  * People & Chat - Direct Private Chat Component (DirectChatTab.jsx)
  * =================================================================

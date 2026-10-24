@@ -1,3 +1,5 @@
+// Connection: src/views/VisualLearningView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders interactive STEM simulations and their learner controls.
 /**
  * EduNerd - Visual Learning Simulations View
  * ==========================================

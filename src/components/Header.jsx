@@ -1,3 +1,5 @@
+// Connection: src/components/Header.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders the fixed top bar, navigation trigger, brand, cohort badge, and theme control.
 /**
  * EduNerd - Sticky App Header
  * ============================

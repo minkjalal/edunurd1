@@ -1,4 +1,6 @@
 @echo off
+rem Connection: run-local.bat is part of the local runtime documented in CODEBASE_GUIDE.md.
+rem Function: Provides a Windows shortcut for launching the local development services.
 title EduNerd - Local Hosting Server
 cd /d "%~dp0"
 echo ========================================================

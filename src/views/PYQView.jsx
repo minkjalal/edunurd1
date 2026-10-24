@@ -1,3 +1,5 @@
+// Connection: src/views/PYQView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders previous-year question browsing and practice routes.
 /**
  * EduNerd - PYQ & Sample Papers View
  * ==================================

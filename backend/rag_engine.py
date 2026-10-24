@@ -8,6 +8,9 @@ Responsibilities:
   - Provide helper utilities for the demo test cases.
 """
 
+# Connection: backend/rag_engine.py is part of the runtime flow documented in CODEBASE_GUIDE.md.
+# Function: Ingests local knowledge, creates embeddings, and retrieves evidence chunks.
+
 from __future__ import annotations
 
 import io

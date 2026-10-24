@@ -1,3 +1,5 @@
+// Connection: src/components/NavigationDrawer.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Displays route navigation and sign-out actions in the side drawer.
 /**
  * EduNerd - Navigation Drawer Component
  * =====================================

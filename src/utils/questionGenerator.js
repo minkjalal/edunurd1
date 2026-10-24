@@ -1,3 +1,5 @@
+// Connection: src/utils/questionGenerator.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Generates deterministic local practice questions for class and exam tools.
 /**
  * =============================================================================
  * EduNerd - Dynamic Question Generator & Shuffle Engine (questionGenerator.js)

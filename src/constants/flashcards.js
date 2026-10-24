@@ -1,3 +1,5 @@
+// Connection: src/constants/flashcards.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines built-in recall decks and their supported categories.
 /**
  * EduNerd - Flashcard Decks & Spaced Repetition Presets
  * ====================================================

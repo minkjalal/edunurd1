@@ -1,3 +1,5 @@
+// Connection: src/views/ClassZoneView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Presents class-specific subjects, exams, and generated practice activities.
 /**
  * EduNerd - Class Zone View (Grades 1 to 12)
  * ==========================================

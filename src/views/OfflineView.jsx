@@ -1,3 +1,5 @@
+// Connection: src/views/OfflineView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Explains and exposes local-only study capabilities when remote APIs are unavailable.
 /**
  * EduNerd - Offline Packs Manager View
  * =====================================

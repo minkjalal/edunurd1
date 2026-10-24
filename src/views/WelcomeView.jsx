@@ -1,3 +1,5 @@
+// Connection: src/views/WelcomeView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders the authenticated welcome and feature-launch surface.
 /**
  * EduNerd - Welcome & Onboarding View
  * ===================================

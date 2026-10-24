@@ -1,3 +1,5 @@
+// Connection: public/shim.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Adapts browser data calls to the local Express API contract.
 /**
  * ============================================================
  * EduNerd – Client Bridge (shim.js)

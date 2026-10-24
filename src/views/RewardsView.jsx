@@ -1,3 +1,5 @@
+// Connection: src/views/RewardsView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Renders XP, levels, streaks, badges, and downloadable achievement rewards.
 /**
  * Anti Gravity 2.0 - Rewards, Badges & Leaderboard View (RewardsView.jsx)
  * =======================================================================

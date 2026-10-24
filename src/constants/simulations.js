@@ -1,3 +1,5 @@
+// Connection: src/constants/simulations.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines the interactive STEM simulation catalog and metadata.
 /**
  * EduNerd - Visual Learning Simulations Directory
  * ===============================================

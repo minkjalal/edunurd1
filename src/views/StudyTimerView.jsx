@@ -1,3 +1,5 @@
+// Connection: src/views/StudyTimerView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Runs Pomodoro phases, ambient sounds, reminders, and study-minute recording.
 /**
  * Anti Gravity 2.0 - Study Timer (Pomodoro) View (StudyTimerView.jsx)
  * ===================================================================

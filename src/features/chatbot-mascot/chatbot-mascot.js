@@ -1,3 +1,5 @@
+// Connection: src/features/chatbot-mascot/chatbot-mascot.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Provides mascot state and browser event helpers.
 /* Animated chatbot mascot. Self-contained: no libraries, no images, no CSS needed.
    Usage:  const bot = ChatbotMascot.mount("#ai-tutor-mascot", { input:"#chat-input", log:"#chat-log" });
    States: bot.setState("idle" | "typing" | "thinking" | "listening" | "happy" | "error")

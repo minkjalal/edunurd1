@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/chatService.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Implements the REST and WebSocket transport boundary for people chat.
 /**
  * People & Chat - Data & Storage Service (chatService.js)
  * =======================================================

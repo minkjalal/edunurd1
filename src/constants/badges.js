@@ -1,3 +1,5 @@
+// Connection: src/constants/badges.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines badge metadata and thresholds consumed by progress and rewards logic.
 /**
  * EduNerd - Achievement Badges & Gamification Constants
  * =====================================================

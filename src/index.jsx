@@ -1,3 +1,5 @@
+// Connection: src/index.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Creates the React root and imports the global application stylesheet.
 /**
  * EduNerd - React 18 Application Entry Point
  * ===========================================

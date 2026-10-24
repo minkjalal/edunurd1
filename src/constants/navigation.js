@@ -1,3 +1,5 @@
+// Connection: src/constants/navigation.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Defines the menu items used by the drawer and route shell.
 /**
  * Anti Gravity 2.0 - Core Navigation Definitions
  * ================================================

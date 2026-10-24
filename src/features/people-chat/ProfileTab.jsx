@@ -1,3 +1,5 @@
+// Connection: src/features/people-chat/ProfileTab.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Displays and edits the current learner profile in people chat.
 /**
  * People & Chat - Profile Editor Component (ProfileTab.jsx)
  * ==========================================================

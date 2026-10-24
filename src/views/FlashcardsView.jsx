@@ -1,3 +1,5 @@
+// Connection: src/views/FlashcardsView.jsx is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Manages flashcard decks, custom cards, review actions, and AI card generation.
 /**
  * EduNerd - 3D Flashcards & Active Recall View
  * ============================================

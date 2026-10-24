@@ -1,3 +1,5 @@
+// Connection: sidecar/chat-server.js is part of the runtime flow documented in CODEBASE_GUIDE.md.
+// Function: Runs the isolated community REST and WebSocket chat service with presence tracking.
 /**
  * =============================================================================
  * EduNerd - Community Zone Real-Time Chat Sidecar (chat-server.js)
