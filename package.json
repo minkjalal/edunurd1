@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "start:backend": "python backend/server.py",
     "start:chat": "node sidecar/chat-server.js",
     "start:all": "node start-all.js",
     "build": "node build.js",

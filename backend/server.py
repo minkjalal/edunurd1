@@ -896,4 +896,7 @@ async def get_study_plan(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+    # Honor the runner-provided port so local orchestration and manual starts
+    # use the same endpoint advertised to the frontend.
+    backend_port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("server:app", host="0.0.0.0", port=backend_port, reload=False)
