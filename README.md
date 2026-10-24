@@ -32,6 +32,10 @@ accounts, saved progress, the community feed with comments & likes, rewards & le
 - **`public/index.html`**: The full responsive single-page EduNerd app with Light/Dark mode, 3D interactive Flashcards, Pomodoro timer with hydration/break reminders, interactive physics & science simulations, and 10-year PYQ explorer.
 - **`public/shim.js`**: Connects the frontend seamlessly to backend routes.
 
+## 🏗️ Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the frontend/backend topology, entity relationship diagram, provider fallbacks, and end-to-end Mermaid flow charts.
+
 ---
 
 ## ⚙️ Environment Variables (`.env`)
